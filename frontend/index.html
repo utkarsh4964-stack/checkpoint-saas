@@ -1,381 +1,2587 @@
-<!DOCTYPE html>
+]<!doctype html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Checkpoint — AI Agent Safety</title>
+
 <style>
-  :root { --bg: #0f1115; --card: #171a21; --border: #2a2e38; --text: #e6e8eb; --muted: #8b909c; }
-  * { box-sizing: border-box; }
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, Segoe UI, sans-serif; margin: 0; padding: 24px; }
-  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
-  .row { display: flex; gap: 8px; margin-bottom: 16px; align-items: center; }
-  input, button { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
-  button { cursor: pointer; }
-  button:hover { border-color: #4a5568; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .summary { display: flex; gap: 16px; margin-bottom: 20px; }
-  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; min-width: 90px; }
-  .stat .n { font-size: 22px; font-weight: 700; }
-  .stat .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .action { background: var(--card); border: 1px solid var(--border); border-left-width: 4px; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
-  .action .top { display: flex; justify-content: space-between; align-items: center; }
-  .intent { font-weight: 600; font-size: 14px; }
-  .meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
-  .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
-  .risk { font-size: 12px; margin-left: 8px; color: var(--muted); }
-  .findings { margin-top: 8px; font-size: 12px; color: #f6ad55; }
-  .finding-row { margin-top: 2px; }
-  .approval-row { margin-top: 10px; display: flex; gap: 8px; }
-  .approval-row button { font-weight: 600; font-size: 12px; padding: 6px 12px; }
-  .btn-approve { border-color: #48bb78 !important; color: #9ae6b4; }
-  .btn-reject { border-color: #f56565 !important; color: #feb2b2; }
-  .action-note { font-size: 11px; color: var(--muted); margin-top: 6px; font-style: italic; }
-  .details { margin-top: 10px; padding: 10px; background: #10131a; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
-  .details-grid { display: grid; grid-template-columns: 110px 1fr; gap: 5px 10px; }
-  .details-label { color: var(--muted); }
-  .diff-title { margin-top: 10px; font-weight: 700; }
-  .diff-list { margin: 6px 0 0 0; padding-left: 18px; }
-  .diff-removed { color: #feb2b2; }
-  .diff-added { color: #9ae6b4; }
-  .diff-modified { color: #faf089; }
-  .view-diff { margin-top: 8px; }
-  .status-completed { border-left-color: #48bb78; }
-  .status-blocked { border-left-color: #f56565; }
-  .status-paused { border-left-color: #ecc94b; }
-  .status-rejected, .status-rolled_back { border-left-color: #a0aec0; }
-  .status-expired { border-left-color: #718096; }
-  .badge-completed { background: #22543d; color: #9ae6b4; }
-  .badge-blocked { background: #63171b; color: #feb2b2; }
-  .badge-paused { background: #5f4c07; color: #faf089; }
-  .badge-rejected, .badge-rolled_back { background: #2d3748; color: #cbd5e0; }
-  .empty { color: var(--muted); font-size: 13px; padding: 40px 0; text-align: center; }
-  .setup { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
-  .setup h2 { font-size: 14px; margin: 0 0 6px; }
-  .setup p { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0 0 12px; }
-  .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .setup input { width: 100%; }
-  .small { color: var(--muted); font-size: 11px; margin-top: 8px; }
-  .error { color: #feb2b2; font-size: 12px; margin-top: 8px; }
-  .quota { color: var(--muted); font-size: 11px; margin-top: 6px; }
-  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .who { font-size: 12px; color: var(--muted); }
-  .who button { margin-left: 8px; font-size: 11px; padding: 4px 8px; }
-  .hidden { display: none !important; }
-  @media (max-width: 700px) { .setup-grid { grid-template-columns: 1fr; } }
+  :root {
+    --bg: #0f1115;
+    --card: #171a21;
+    --card2: #10131a;
+    --border: #2a2e38;
+    --text: #e6e8eb;
+    --muted: #8b909c;
+
+    --green: #48bb78;
+    --green-text: #9ae6b4;
+
+    --red: #f56565;
+    --red-text: #feb2b2;
+
+    --yellow: #ecc94b;
+    --yellow-text: #faf089;
+
+    --blue: #63b3ed;
+    --blue-text: #bee3f8;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 24px;
+  }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 4px;
+  }
+
+  h2 {
+    font-size: 14px;
+    margin: 0 0 6px;
+  }
+
+  .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+
+  .row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  input,
+  button {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  input:focus {
+    outline: none;
+    border-color: #4a5568;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:hover {
+    border-color: #657085;
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .summary {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    min-width: 90px;
+  }
+
+  .stat .n {
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .stat .l {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .setup {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .setup p {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0 0 12px;
+  }
+
+  .setup-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .setup input {
+    width: 100%;
+  }
+
+  .small {
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 8px;
+  }
+
+  .error {
+    color: var(--red-text);
+    font-size: 12px;
+    margin-top: 8px;
+  }
+
+  .quota {
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 6px;
+    margin-bottom: 16px;
+  }
+
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .who {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .who button {
+    margin-left: 8px;
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  /* ---------------------------------------------------------
+     Timeline
+  --------------------------------------------------------- */
+
+  .action {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+
+  .action .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .intent {
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .meta {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .risk {
+    font-size: 12px;
+    margin-left: 8px;
+    color: var(--muted);
+  }
+
+  .findings {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #f6ad55;
+  }
+
+  .finding-row {
+    margin-top: 3px;
+  }
+
+  .details {
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+  }
+
+  .details-grid {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 5px 10px;
+  }
+
+  .details-label {
+    color: var(--muted);
+  }
+
+  .diff-title {
+    margin-top: 10px;
+    font-weight: 700;
+  }
+
+  .diff-list {
+    margin: 6px 0 0;
+    padding-left: 18px;
+  }
+
+  .diff-removed {
+    color: var(--red-text);
+  }
+
+  .diff-added {
+    color: var(--green-text);
+  }
+
+  .diff-modified {
+    color: var(--yellow-text);
+  }
+
+  .approval-row {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .approval-row button {
+    font-weight: 600;
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .btn-approve {
+    border-color: var(--green) !important;
+    color: var(--green-text);
+  }
+
+  .btn-reject {
+    border-color: var(--red) !important;
+    color: var(--red-text);
+  }
+
+  .btn-warning {
+    border-color: var(--yellow) !important;
+    color: var(--yellow-text);
+  }
+
+  .btn-blue {
+    border-color: var(--blue) !important;
+    color: var(--blue-text);
+  }
+
+  .action-note {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-style: italic;
+  }
+
+  .status-completed {
+    border-left-color: var(--green);
+  }
+
+  .status-blocked {
+    border-left-color: var(--red);
+  }
+
+  .status-paused {
+    border-left-color: var(--yellow);
+  }
+
+  .status-approved {
+    border-left-color: var(--green);
+  }
+
+  .status-rejected,
+  .status-rolled_back {
+    border-left-color: #a0aec0;
+  }
+
+  .status-failed,
+  .status-recovery_failed {
+    border-left-color: var(--red);
+  }
+
+  .status-expired {
+    border-left-color: #718096;
+  }
+
+  .badge-completed,
+  .badge-approved {
+    background: #22543d;
+    color: var(--green-text);
+  }
+
+  .badge-blocked {
+    background: #63171b;
+    color: var(--red-text);
+  }
+
+  .badge-paused {
+    background: #5f4c07;
+    color: var(--yellow-text);
+  }
+
+  .badge-rejected,
+  .badge-rolled_back {
+    background: #2d3748;
+    color: #cbd5e0;
+  }
+
+  .badge-failed,
+  .badge-recovery_failed {
+    background: #63171b;
+    color: var(--red-text);
+  }
+
+  .empty {
+    color: var(--muted);
+    font-size: 13px;
+    padding: 40px 0;
+    text-align: center;
+  }
+
+  /* ---------------------------------------------------------
+     Demo Lab
+  --------------------------------------------------------- */
+
+  .demo-lab {
+    border-color: #3b4352;
+  }
+
+  .demo-lab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .demo-lab-title {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .demo-lab-subtitle {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+
+  .demo-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .demo-card {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+
+  .demo-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .demo-description {
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
+    min-height: 50px;
+    margin-bottom: 10px;
+  }
+
+  .demo-card button {
+    width: 100%;
+    font-weight: 600;
+  }
+
+  .demo-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .demo-controls button {
+    font-size: 12px;
+  }
+
+  .demo-status {
+    margin-top: 12px;
+    padding: 10px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-size: 12px;
+    color: var(--muted);
+    white-space: pre-wrap;
+  }
+
+  .demo-status.success {
+    border-color: #2f7651;
+    color: var(--green-text);
+  }
+
+  .demo-status.warning {
+    border-color: #75651c;
+    color: var(--yellow-text);
+  }
+
+  .demo-status.danger {
+    border-color: #8b3b43;
+    color: var(--red-text);
+  }
+
+  .demo-workspace {
+    margin-top: 12px;
+    padding: 10px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+  }
+
+  .demo-workspace-title {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .workspace-tree {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    color: #cbd5e0;
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9em;
+  }
+
+  @media (max-width: 700px) {
+    .setup-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .demo-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .action .top {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
 </style>
 </head>
+
 <body>
-  <div class="topbar">
-    <div>
-      <h1>Checkpoint</h1>
-      <div class="sub">Git for AI agent actions — safety, observability and recovery</div>
+
+<div class="topbar">
+  <div>
+    <h1>Checkpoint</h1>
+    <div class="sub">
+      Git for AI agent actions — safety, observability and recovery
     </div>
-    <div id="who" class="who hidden"></div>
   </div>
 
-  <!-- Auth gate -->
-  <div id="authPanel" class="setup">
-    <h2 id="authTitle">Log in</h2>
-    <p>Each account only ever sees its own sessions. Sessions are isolated per user on the server.</p>
+  <div id="who" class="who hidden"></div>
+</div>
+
+
+<!-- =========================================================
+     AUTH
+========================================================= -->
+
+<div id="authPanel" class="setup">
+
+  <h2>Log in</h2>
+
+  <p>
+    Each account only ever sees its own sessions.
+    Sessions are isolated per user on the server.
+  </p>
+
+  <div class="setup-grid">
+
+    <input
+      id="authEmail"
+      type="email"
+      placeholder="you@example.com"
+      autocomplete="username"
+    />
+
+    <input
+      id="authPassword"
+      type="password"
+      placeholder="Password (min 8 characters)"
+      autocomplete="current-password"
+    />
+
+  </div>
+
+  <div class="row" style="margin-top:8px;margin-bottom:0">
+
+    <button id="loginBtn" onclick="login()">
+      Log in
+    </button>
+
+    <button id="registerBtn" onclick="register()">
+      Create account
+    </button>
+
+  </div>
+
+  <div id="authStatus" class="small"></div>
+
+</div>
+
+
+<!-- =========================================================
+     MAIN APP
+========================================================= -->
+
+<div id="app" class="hidden">
+
+  <!-- -------------------------------------------------------
+       SESSION CONNECTION
+  -------------------------------------------------------- -->
+
+  <div class="setup">
+
+    <h2>Connect a session</h2>
+
+    <p>
+      Use your own Solari API key. Checkpoint forwards it only
+      when creating the session; it is not stored in the database
+      or returned by the API. The browser clears the key after
+      the request.
+    </p>
+
     <div class="setup-grid">
-      <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="username" />
-      <input id="authPassword" type="password" placeholder="Password (min 8 characters)" autocomplete="current-password" />
+
+      <input
+        id="solariKey"
+        type="password"
+        placeholder="Your Solari API key (slr_...)"
+        autocomplete="off"
+      />
+
+      <input
+        id="sessionId"
+        placeholder="Existing session ID (optional)"
+      />
+
     </div>
+
     <div class="row" style="margin-top:8px;margin-bottom:0">
-      <button id="loginBtn" onclick="login()">Log in</button>
-      <button id="registerBtn" onclick="register()">Create account</button>
+
+      <button onclick="startSession()">
+        Start Solari session
+      </button>
+
+      <button onclick="load()">
+        Load timeline
+      </button>
+
     </div>
-    <div id="authStatus" class="small"></div>
+
+    <div id="setupStatus" class="small"></div>
+
+    <div id="setupError" class="error"></div>
+
   </div>
 
-  <!-- Main app (hidden until authenticated) -->
-  <div id="app" class="hidden">
-    <div class="setup">
-      <h2>Connect a session</h2>
-      <p>
-        Use your own Solari API key. Checkpoint forwards it only when creating
-        the session; it is not stored in the database or returned by the API.
-        The browser clears the key after the request. For production, use HTTPS.
-      </p>
-      <div class="setup-grid">
-        <input id="solariKey" type="password" placeholder="Your Solari API key (slr_...)" autocomplete="off" />
-        <input id="sessionId" placeholder="Existing session ID (optional)" />
+
+  <!-- -------------------------------------------------------
+       SUMMARY
+  -------------------------------------------------------- -->
+
+  <div id="summary" class="summary"></div>
+
+  <div id="quota" class="quota"></div>
+
+
+  <!-- =======================================================
+       DEMO LAB
+  ======================================================== -->
+
+  <div id="demoLab" class="setup demo-lab">
+
+    <div class="demo-lab-header">
+
+      <div>
+
+        <div class="demo-lab-title">
+          CHECKPOINT Demo Lab
+        </div>
+
+        <div class="demo-lab-subtitle">
+          Run controlled agent actions through the real
+          safety → checkpoint → execution → diff →
+          human decision → recovery pipeline.
+        </div>
+
       </div>
-      <div class="row" style="margin-top:8px;margin-bottom:0">
-        <button onclick="startSession()">Start Solari session</button>
-        <button onclick="load()">Load timeline</button>
-      </div>
-      <div id="setupStatus" class="small"></div>
-      <div id="setupError" class="error"></div>
+
+      <button
+        class="btn-blue"
+        onclick="refreshDemoTimeline()"
+      >
+        Refresh
+      </button>
+
     </div>
-    <div id="summary" class="summary"></div>
-    <div id="quota" class="quota"></div>
-    <div id="timeline"></div>
+
+
+    <!-- Demo workspace -->
+
+    <div class="demo-workspace">
+
+      <div class="demo-workspace-title">
+        Demo workspace
+      </div>
+
+      <div class="workspace-tree">
+        project/<br>
+        ├── secrets.env<br>
+        ├── reports/<br>
+        │   └── report.txt<br>
+        └── bulk_data/<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;├── file_01.dat<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;├── file_02.dat<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;├── ...<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;└── file_25.dat
+      </div>
+
+    </div>
+
+
+    <!-- Demo scenarios -->
+
+    <div class="demo-grid">
+
+
+      <!-- SAFE -->
+
+      <div class="demo-card">
+
+        <div class="demo-title">
+          🟢 Safe action
+        </div>
+
+        <div class="demo-description">
+          Creates a harmless summary file.
+          Expected result:
+          <strong>COMPLETED</strong> with low risk.
+        </div>
+
+        <button
+          class="btn-approve"
+          onclick="demoSafeAction()"
+        >
+          Run safe action
+        </button>
+
+      </div>
+
+
+      <!-- SECRET -->
+
+      <div class="demo-card">
+
+        <div class="demo-title">
+          🔴 Secret deletion
+        </div>
+
+        <div class="demo-description">
+          Attempts to delete
+          <code>secrets.env</code>.
+          Expected result:
+          <strong>BLOCKED</strong> before execution.
+        </div>
+
+        <button
+          class="btn-reject"
+          onclick="demoSecretDelete()"
+        >
+          Delete secrets.env
+        </button>
+
+      </div>
+
+
+      <!-- INTENT MISMATCH -->
+
+      <div class="demo-card">
+
+        <div class="demo-title">
+          🔴 Intent mismatch
+        </div>
+
+        <div class="demo-description">
+          Runs
+          <code>rm -rf reports</code>
+          while the stated intent is to organize reports.
+          Expected result:
+          <strong>BLOCKED</strong>.
+        </div>
+
+        <button
+          class="btn-reject"
+          onclick="demoIntentMismatch()"
+        >
+          Run destructive mismatch
+        </button>
+
+      </div>
+
+
+      <!-- BULK -->
+
+      <div class="demo-card">
+
+        <div class="demo-title">
+          🟠 Evasive bulk deletion
+        </div>
+
+        <div class="demo-description">
+          Deletes 25 files through Python filesystem
+          operations without an obvious destructive shell
+          command. Expected result:
+          <strong>PAUSED</strong> after diff analysis.
+        </div>
+
+        <button
+          class="btn-warning"
+          onclick="demoBulkDelete()"
+        >
+          Run bulk-delete attack
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <!-- Human decision -->
+
+    <div class="demo-controls">
+
+      <button
+        class="btn-approve"
+        onclick="approveLatestPaused()"
+      >
+        ✓ Approve latest paused action
+      </button>
+
+      <button
+        class="btn-reject"
+        onclick="rejectLatestPaused()"
+      >
+        ↩ Reject + recover latest paused action
+      </button>
+
+      <button
+        onclick="refreshDemoTimeline()"
+      >
+        ↻ Refresh timeline
+      </button>
+
+    </div>
+
+
+    <div
+      id="demoStatus"
+      class="demo-status"
+    >
+      Connect a session above to begin the demo.
+    </div>
+
   </div>
+
+
+  <!-- =======================================================
+       TIMELINE
+  ======================================================== -->
+
+  <div id="timeline"></div>
+
+</div>
+
 
 <script>
-const API = window.CHECKPOINT_API || window.location.origin;
-const TOKEN_KEY = "checkpoint_token";
-const USER_KEY = "checkpoint_user_email";
 
-function getToken() { return sessionStorage.getItem(TOKEN_KEY) || ""; }
+/* ============================================================
+   GLOBAL CONFIG
+============================================================ */
+
+const API =
+  window.CHECKPOINT_API ||
+  window.location.origin;
+
+const TOKEN_KEY =
+  "checkpoint_token";
+
+const USER_KEY =
+  "checkpoint_user_email";
+
+
+/* ============================================================
+   AUTH STORAGE
+============================================================ */
+
+function getToken() {
+
+  return sessionStorage.getItem(TOKEN_KEY) || "";
+
+}
+
+
 function setSession(token, email) {
-  sessionStorage.setItem(TOKEN_KEY, token);
-  sessionStorage.setItem(USER_KEY, email);
+
+  sessionStorage.setItem(
+    TOKEN_KEY,
+    token
+  );
+
+  sessionStorage.setItem(
+    USER_KEY,
+    email
+  );
+
 }
+
+
 function clearSession() {
-  sessionStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(USER_KEY);
+
+  sessionStorage.removeItem(
+    TOKEN_KEY
+  );
+
+  sessionStorage.removeItem(
+    USER_KEY
+  );
+
 }
 
-function authHeaders(extra) {
-  const h = Object.assign({}, extra || {});
-  const t = getToken();
-  if (t) h["Authorization"] = `Bearer ${t}`;
-  return h;
-}
 
-// Wraps fetch: on 401, clears the session and drops back to the login
-// screen instead of silently failing.
-async function api(path, options = {}) {
-  const res = await fetch(`${API}${path}`, {
-    ...options,
-    headers: authHeaders(options.headers || (options.body ? { "Content-Type": "application/json" } : {})),
-  });
-  if (res.status === 401) {
-    clearSession();
-    showAuthGate("Your session expired. Please log in again.");
-    throw new Error("Not authenticated");
+/* ============================================================
+   HTML ESCAPE
+============================================================ */
+
+function escapeHtml(value) {
+
+  if (value === null || value === undefined) {
+    return "";
   }
-  return res;
+
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
 }
 
-function statNode(n, l) {
-  return `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`;
+
+/* ============================================================
+   API HELPER
+============================================================ */
+
+function authHeaders(extra = {}) {
+
+  const headers = {
+    ...extra
+  };
+
+  const token =
+    getToken();
+
+  if (token) {
+
+    headers["Authorization"] =
+      `Bearer ${token}`;
+
+  }
+
+  return headers;
+
 }
 
-function showAuthGate(message) {
-  document.getElementById("authPanel").classList.remove("hidden");
-  document.getElementById("app").classList.add("hidden");
-  document.getElementById("who").classList.add("hidden");
-  document.getElementById("authStatus").textContent = message || "";
+
+async function api(
+  path,
+  options = {}
+) {
+
+  const headers =
+    authHeaders(
+      options.headers ||
+      (
+        options.body
+          ? {
+              "Content-Type":
+                "application/json"
+            }
+          : {}
+      )
+    );
+
+  const response =
+    await fetch(
+      `${API}${path}`,
+      {
+        ...options,
+        headers
+      }
+    );
+
+  if (response.status === 401) {
+
+    clearSession();
+
+    showAuthGate(
+      "Your session expired. Please log in again."
+    );
+
+    throw new Error(
+      "Not authenticated"
+    );
+
+  }
+
+  return response;
+
 }
 
-window.currentSessionStatus = "running";
+
+/* ============================================================
+   AUTH UI
+============================================================ */
+
+function showAuthGate(message = "") {
+
+  document
+    .getElementById("authPanel")
+    .classList
+    .remove("hidden");
+
+  document
+    .getElementById("app")
+    .classList
+    .add("hidden");
+
+  document
+    .getElementById("who")
+    .classList
+    .add("hidden");
+
+  document
+    .getElementById("authStatus")
+    .textContent =
+      message;
+
+}
+
 
 function showApp() {
-  document.getElementById("authPanel").classList.add("hidden");
-  document.getElementById("app").classList.remove("hidden");
-  const email = sessionStorage.getItem(USER_KEY) || "";
-  const who = document.getElementById("who");
-  who.classList.remove("hidden");
-  who.innerHTML = `${escapeHtml(email)} <button onclick="logout()">Log out</button>`;
+
+  document
+    .getElementById("authPanel")
+    .classList
+    .add("hidden");
+
+  document
+    .getElementById("app")
+    .classList
+    .remove("hidden");
+
+  const email =
+    sessionStorage.getItem(
+      USER_KEY
+    ) || "";
+
+  const who =
+    document.getElementById(
+      "who"
+    );
+
+  who.classList.remove(
+    "hidden"
+  );
+
+  who.innerHTML =
+    `${escapeHtml(email)}
+     <button onclick="logout()">
+       Log out
+     </button>`;
+
 }
+
+
+/* ============================================================
+   LOGIN / REGISTER
+============================================================ */
 
 async function register() {
-  await authenticate("/auth/register");
+
+  await authenticate(
+    "/auth/register"
+  );
+
 }
+
 
 async function login() {
-  await authenticate("/auth/login");
+
+  await authenticate(
+    "/auth/login"
+  );
+
 }
 
-async function authenticate(path) {
-  const email = document.getElementById("authEmail").value.trim();
-  const password = document.getElementById("authPassword").value;
-  const status = document.getElementById("authStatus");
+
+async function authenticate(
+  path
+) {
+
+  const email =
+    document
+      .getElementById(
+        "authEmail"
+      )
+      .value
+      .trim();
+
+  const password =
+    document
+      .getElementById(
+        "authPassword"
+      )
+      .value;
+
+  const status =
+    document.getElementById(
+      "authStatus"
+    );
+
   if (!email || !password) {
-    status.textContent = "Enter an email and password.";
+
+    status.textContent =
+      "Enter an email and password.";
+
     return;
+
   }
-  status.textContent = path.includes("register") ? "Creating account…" : "Logging in…";
+
+  status.textContent =
+    path.includes("register")
+      ? "Creating account…"
+      : "Logging in…";
+
   try {
-    const res = await fetch(`${API}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Authentication failed");
-    setSession(data.access_token, data.email);
-    document.getElementById("authPassword").value = "";
+
+    const response =
+      await fetch(
+        `${API}${path}`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            email,
+            password
+          })
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.detail ||
+        "Authentication failed"
+      );
+
+    }
+
+    setSession(
+      data.access_token,
+      data.email
+    );
+
+    document
+      .getElementById(
+        "authPassword"
+      )
+      .value = "";
+
     showApp();
-  } catch (err) {
-    status.textContent = `Error: ${err.message}`;
+
+  } catch (error) {
+
+    status.textContent =
+      `Error: ${error.message}`;
+
   }
+
 }
+
 
 function logout() {
+
   clearSession();
+
   showAuthGate("");
+
 }
+
+
+/* ============================================================
+   SESSION CREATION
+============================================================ */
 
 async function startSession() {
-  const key = document.getElementById("solariKey").value.trim();
-  const status = document.getElementById("setupStatus");
-  const errorEl = document.getElementById("setupError");
-  errorEl.textContent = "";
+
+  const key =
+    document
+      .getElementById(
+        "solariKey"
+      )
+      .value
+      .trim();
+
+  const status =
+    document.getElementById(
+      "setupStatus"
+    );
+
+  const error =
+    document.getElementById(
+      "setupError"
+    );
+
+  error.textContent =
+    "";
 
   if (!key) {
-    status.textContent = "Enter your Solari API key to start a real Solari session.";
+
+    status.textContent =
+      "Enter your Solari API key.";
+
     return;
+
   }
 
-  status.textContent = "Creating isolated Solari sandbox…";
+  status.textContent =
+    "Creating isolated Solari sandbox…";
 
   try {
-    const res = await api("/sessions", {
-      method: "POST",
-      body: JSON.stringify({
-        agent_id: "checkpoint-web-user",
-        task_description: "User-controlled Checkpoint session",
-        solari_api_key: key,
-      }),
-    });
 
-    const data = await res.json();
-    if (!res.ok) {
-      errorEl.textContent = data.detail || "Unable to create session";
-      status.textContent = "";
+    const response =
+      await api(
+        "/sessions",
+        {
+          method: "POST",
+
+          body: JSON.stringify({
+
+            agent_id:
+              "checkpoint-web-user",
+
+            task_description:
+              "User-controlled Checkpoint demo session",
+
+            solari_api_key:
+              key
+
+          })
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+
+      error.textContent =
+        data.detail ||
+        "Unable to create session.";
+
+      status.textContent =
+        "";
+
       return;
+
     }
 
-    document.getElementById("sessionId").value = data.id;
-    // Do not retain the key in browser storage.
-    document.getElementById("solariKey").value = "";
-    status.textContent = `Session created: ${data.id}. Your key is no longer held by this page.`;
+    document
+      .getElementById(
+        "sessionId"
+      )
+      .value =
+        data.id;
+
+    /*
+     * Never retain the Solari key
+     * in browser storage.
+     */
+
+    document
+      .getElementById(
+        "solariKey"
+      )
+      .value =
+        "";
+
+    status.textContent =
+      `Session created: ${data.id}. ` +
+      `Your key is no longer held by this page.`;
+
+    demoSetStatus(
+      "Session connected. Initialize the demo workspace first.",
+      false
+    );
+
     await load();
-  } catch (err) {
-    if (err.message !== "Not authenticated") status.textContent = `Error: ${err.message}`;
+
+  } catch (error) {
+
+    if (
+      error.message !==
+      "Not authenticated"
+    ) {
+
+      status.textContent =
+        `Error: ${error.message}`;
+
+    }
+
   }
+
 }
+
+
+/* ============================================================
+   LOAD TIMELINE
+============================================================ */
 
 async function load() {
-  const id = document.getElementById("sessionId").value.trim();
-  if (!id) return;
-  const errorEl = document.getElementById("setupError");
-  try {
-    const res = await api(`/sessions/${id}/timeline`);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      document.getElementById("timeline").innerHTML = `<div class="empty">${escapeHtml(data.detail || `No session found for "${id}"`)}</div>`;
-      document.getElementById("summary").innerHTML = "";
-      document.getElementById("quota").textContent = "";
-      return;
-    }
-    const data = await res.json();
-    errorEl.textContent = "";
-    renderSummary(data.summary);
-    window.currentSessionStatus = data.status || "running";
-    renderQuota(data.limits);
-    renderTimeline(data.actions);
-  } catch (err) {
-    // "Not authenticated" already redirected to the login screen.
-  }
-}
 
-function renderSummary(s) {
-  document.getElementById("summary").innerHTML = [
-    statNode(s.total_actions, "Actions"),
-    statNode(s.total_checkpoints, "Checkpoints"),
-    statNode(s.blocked_actions, "Blocked"),
-    statNode(s.rollbacks, "Rollbacks"),
-  ].join("");
-}
+  const id =
+    document
+      .getElementById(
+        "sessionId"
+      )
+      .value
+      .trim();
 
-function renderQuota(limits) {
-  if (!limits) { document.getElementById("quota").textContent = ""; return; }
-  document.getElementById("quota").textContent =
-    `${limits.actions_used} / ${limits.max_actions_per_session} actions used in this session`;
-}
-
-function renderTimeline(entries) {
-  const el = document.getElementById("timeline");
-  if (!entries.length) {
-    el.innerHTML = `<div class="empty">No actions yet.</div>`;
+  if (!id) {
     return;
   }
-  el.innerHTML = entries.map(({ action, findings }) => {
-    const findingsHtml = findings.length
-      ? `<div class="findings">${findings.map(f => `<div class="finding-row">⚠ ${escapeHtml(f.rule)}: ${escapeHtml(f.message)}</div>`).join("")}</div>`
-      : "";
-    // PAUSED = a post-execution DANGEROUS action awaiting a human
-    // decision (see checkpoint_manager.py) — this is the only status
-    // that gets live approve/reject buttons. BLOCKED actions never ran
-    // in the first place, so there's nothing to approve/reject.
-    const approvalHtml = action.status === "paused"
-      ? `<div class="approval-row">
-           <button class="btn-approve" onclick="approveAction('${action.id}')">Approve</button>
-           <button class="btn-reject" onclick="rejectAction('${action.id}')">Reject &amp; Roll Back</button>
-         </div>`
-      : "";
-    return `
-      <div class="action status-${action.status}">
-        <div class="top">
-          <div class="intent">${escapeHtml(action.intent)}</div>
-          <span class="badge badge-${action.status}">${action.status}</span>
-        </div>
-        <div class="meta">
-          ${escapeHtml(action.type)} → ${escapeHtml(action.target || "(n/a)")}
-          <span class="risk">risk ${action.risk_score}/100</span>
-        </div>
-        ${findingsHtml}
-        ${approvalHtml}
-        ${action.status === "blocked" ? `<div class="action-note">Blocked before execution — never touched the sandbox.</div>` : ""}
-        ${action.status === "expired" ? `<div class="action-note">This session's runtime expired (idle timeout or server restart).</div>` : ""}
-        ${diffHtml(action.diff)}
-      </div>`;
-  }).join("");
-}
 
-function diffHtml(diff) {
-  if (!diff) return "";
-  const total = (diff.files_added || []).length + (diff.files_removed || []).length + (diff.files_modified || []).length;
-  if (!total) return `<div class="details"><span class="details-label">Diff</span> — no filesystem changes.</div>`;
-  const removed = (diff.files_removed || []).map(p => `<li class="diff-removed">− ${escapeHtml(p)}</li>`).join("");
-  const added = (diff.files_added || []).map(p => `<li class="diff-added">+ ${escapeHtml(p)}</li>`).join("");
-  const modified = (diff.files_modified || []).map(p => `<li class="diff-modified">~ ${escapeHtml(p)}</li>`).join("");
-  return `<details class="details"><summary>View diff (${total} files)</summary>
-    ${removed || added || modified ? `<ul class="diff-list">${removed}${added}${modified}</ul>` : ""}
-  </details>`;
-}
-
-async function approveAction(actionId) {
   try {
-    const res = await api(`/actions/${actionId}/approve`, { method: "POST" });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      document.getElementById("setupError").textContent = data.detail || "Could not approve this action.";
+
+    const response =
+      await api(
+        `/sessions/${encodeURIComponent(id)}/timeline`
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+
+      document
+        .getElementById(
+          "timeline"
+        )
+        .innerHTML =
+          `<div class="empty">
+             ${escapeHtml(
+               data.detail ||
+               "Session not found."
+             )}
+           </div>`;
+
+      return;
+
     }
-  } catch (err) { /* handled by api() */ }
-  load();
+
+    renderSummary(
+      data.summary
+    );
+
+    renderQuota(
+      data.limits
+    );
+
+    renderTimeline(
+      data.actions || []
+    );
+
+  } catch (error) {
+
+    if (
+      error.message !==
+      "Not authenticated"
+    ) {
+
+      document
+        .getElementById(
+          "timeline"
+        )
+        .innerHTML =
+          `<div class="empty">
+             Unable to load timeline.
+           </div>`;
+
+    }
+
+  }
+
 }
 
-async function rejectAction(actionId) {
-  // rollback=true (default on the backend) restores the checkpoint taken
-  // right before this action.
+
+/* ============================================================
+   SUMMARY
+============================================================ */
+
+function statNode(
+  number,
+  label
+) {
+
+  return `
+    <div class="stat">
+      <div class="n">
+        ${escapeHtml(number)}
+      </div>
+
+      <div class="l">
+        ${escapeHtml(label)}
+      </div>
+    </div>
+  `;
+
+}
+
+
+function renderSummary(
+  summary
+) {
+
+  const s =
+    summary || {};
+
+  document
+    .getElementById(
+      "summary"
+    )
+    .innerHTML = [
+
+      statNode(
+        s.total_actions || 0,
+        "Actions"
+      ),
+
+      statNode(
+        s.total_checkpoints || 0,
+        "Checkpoints"
+      ),
+
+      statNode(
+        s.blocked_actions || 0,
+        "Blocked"
+      ),
+
+      statNode(
+        s.rollbacks || 0,
+        "Rollbacks"
+      )
+
+    ].join("");
+
+}
+
+
+function renderQuota(
+  limits
+) {
+
+  const element =
+    document.getElementById(
+      "quota"
+    );
+
+  if (!limits) {
+
+    element.textContent =
+      "";
+
+    return;
+
+  }
+
+  element.textContent =
+    `${limits.actions_used || 0} / ` +
+    `${limits.max_actions_per_session || 0} ` +
+    `actions used in this session`;
+
+}
+
+
+/* ============================================================
+   TIMELINE RENDERING
+============================================================ */
+
+function statusClass(
+  status
+) {
+
+  return String(
+    status || "unknown"
+  )
+    .toLowerCase()
+    .replaceAll(" ", "_");
+
+}
+
+
+function renderTimeline(
+  entries
+) {
+
+  const element =
+    document.getElementById(
+      "timeline"
+    );
+
+  if (!entries.length) {
+
+    element.innerHTML =
+      `<div class="empty">
+         No actions yet.
+       </div>`;
+
+    return;
+
+  }
+
+  element.innerHTML =
+    entries
+      .map(
+        entry =>
+          renderTimelineEntry(
+            entry
+          )
+      )
+      .join("");
+
+}
+
+
+function renderTimelineEntry(
+  entry
+) {
+
+  const action =
+    entry.action || {};
+
+  const findings =
+    entry.findings || [];
+
+  const status =
+    String(
+      action.status || "unknown"
+    );
+
+  const statusSlug =
+    statusClass(status);
+
+  const findingsHtml =
+    findings.length
+
+      ? `
+        <div class="findings">
+
+          ${findings
+            .map(
+              finding => `
+                <div class="finding-row">
+                  ⚠
+                  ${escapeHtml(
+                    finding.rule
+                  )}
+                  :
+                  ${escapeHtml(
+                    finding.message
+                  )}
+
+                  ${
+                    finding.confidence !==
+                    undefined
+                      ? ` (${Math.round(
+                          Number(
+                            finding.confidence
+                          ) * 100
+                        )}% confidence)`
+                      : ""
+                  }
+                </div>
+              `
+            )
+            .join("")}
+
+        </div>
+      `
+
+      : "";
+
+
+  let approvalHtml =
+    "";
+
+  if (
+    status === "paused"
+  ) {
+
+    approvalHtml = `
+      <div class="approval-row">
+
+        <button
+          class="btn-approve"
+          onclick="approveAction('${escapeHtml(action.id)}')"
+        >
+          ✓ Approve
+        </button>
+
+        <button
+          class="btn-reject"
+          onclick="rejectAction('${escapeHtml(action.id)}')"
+        >
+          ↩ Reject + Recover
+        </button>
+
+      </div>
+    `;
+
+  }
+
+
+  const diff =
+    action.diff;
+
+  let diffHtml =
+    "";
+
+  if (diff) {
+
+    const added =
+      diff.files_added || [];
+
+    const removed =
+      diff.files_removed || [];
+
+    const modified =
+      diff.files_modified || [];
+
+    if (
+      added.length ||
+      removed.length ||
+      modified.length
+    ) {
+
+      diffHtml = `
+        <div class="diff-title">
+          Filesystem diff
+        </div>
+
+        <ul class="diff-list">
+
+          ${added
+            .map(
+              file =>
+                `<li class="diff-added">
+                   + ${escapeHtml(file)}
+                 </li>`
+            )
+            .join("")}
+
+          ${modified
+            .map(
+              file =>
+                `<li class="diff-modified">
+                   ~ ${escapeHtml(file)}
+                 </li>`
+            )
+            .join("")}
+
+          ${removed
+            .map(
+              file =>
+                `<li class="diff-removed">
+                   - ${escapeHtml(file)}
+                 </li>`
+            )
+            .join("")}
+
+        </ul>
+      `;
+
+    }
+
+  }
+
+
+  const target =
+    action.target ||
+    "—";
+
+  const command =
+    action.parameters &&
+    action.parameters.command
+      ? action.parameters.command
+      : "";
+
+
+  return `
+    <div class="action status-${statusSlug}">
+
+      <div class="top">
+
+        <div class="intent">
+          ${escapeHtml(
+            action.intent ||
+            "Agent action"
+          )}
+        </div>
+
+        <div>
+
+          <span
+            class="badge badge-${statusSlug}"
+          >
+            ${escapeHtml(
+              status.toUpperCase()
+            )}
+          </span>
+
+          <span class="risk">
+            Risk:
+            ${escapeHtml(
+              action.risk_score || 0
+            )}
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="meta">
+
+        Type:
+        ${escapeHtml(
+          action.type || "unknown"
+        )}
+
+        &nbsp; • &nbsp;
+
+        Target:
+        ${escapeHtml(target)}
+
+      </div>
+
+
+      ${findingsHtml}
+
+
+      <div class="details">
+
+        <div class="details-grid">
+
+          <div class="details-label">
+            Action ID
+          </div>
+
+          <div>
+            ${escapeHtml(
+              action.id
+            )}
+          </div>
+
+
+          <div class="details-label">
+            Checkpoint
+          </div>
+
+          <div>
+            ${escapeHtml(
+              action.checkpoint_id ||
+              "none"
+            )}
+          </div>
+
+
+          ${
+            command
+              ? `
+                <div class="details-label">
+                  Command
+                </div>
+
+                <div>
+                  <code>
+                    ${escapeHtml(
+                      command
+                    )}
+                  </code>
+                </div>
+              `
+              : ""
+          }
+
+        </div>
+
+
+        ${diffHtml}
+
+      </div>
+
+
+      ${approvalHtml}
+
+    </div>
+  `;
+
+}
+
+
+/* ============================================================
+   DEMO STATUS
+============================================================ */
+
+function demoSetStatus(
+  message,
+  type = false
+) {
+
+  const element =
+    document.getElementById(
+      "demoStatus"
+    );
+
+  element.textContent =
+    message;
+
+  element.className =
+    "demo-status";
+
+  if (type === "success") {
+
+    element.classList.add(
+      "success"
+    );
+
+  }
+
+  if (type === "warning") {
+
+    element.classList.add(
+      "warning"
+    );
+
+  }
+
+  if (type === "danger") {
+
+    element.classList.add(
+      "danger"
+    );
+
+  }
+
+}
+
+
+/* ============================================================
+   DEMO SESSION
+============================================================ */
+
+function getDemoSessionId() {
+
+  return document
+    .getElementById(
+      "sessionId"
+    )
+    .value
+    .trim();
+
+}
+
+
+function requireDemoSession() {
+
+  const sessionId =
+    getDemoSessionId();
+
+  if (!sessionId) {
+
+    demoSetStatus(
+      "Create a Solari session first.",
+      "danger"
+    );
+
+    return null;
+
+  }
+
+  return sessionId;
+
+}
+
+
+/* ============================================================
+   DEMO ACTION SUBMISSION
+============================================================ */
+
+async function submitDemoAction(
+  type,
+  intent,
+  target,
+  parameters = {}
+) {
+
+  const sessionId =
+    requireDemoSession();
+
+  if (!sessionId) {
+    return null;
+  }
+
+  demoSetStatus(
+    "CHECKPOINT is evaluating the action…"
+  );
+
   try {
-    const res = await api(`/actions/${actionId}/reject?rollback=true`, { method: "POST" });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      document.getElementById("setupError").textContent = data.detail || "Could not reject this action.";
+
+    const response =
+      await api(
+        `/sessions/${encodeURIComponent(sessionId)}/actions`,
+        {
+          method: "POST",
+
+          body: JSON.stringify({
+
+            session_id:
+              sessionId,
+
+            type:
+              type,
+
+            intent:
+              intent,
+
+            target:
+              target,
+
+            parameters:
+              parameters
+
+          })
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+
+      demoSetStatus(
+        data.detail ||
+        `Action failed (${response.status})`,
+        "danger"
+      );
+
+      return null;
+
     }
-  } catch (err) { /* handled by api() */ }
-  load();
+
+
+    const status =
+      String(
+        data.status || ""
+      ).toUpperCase();
+
+    const risk =
+      data.risk_score || 0;
+
+
+    if (
+      status === "BLOCKED"
+    ) {
+
+      demoSetStatus(
+        `🔴 BLOCKED\n\n` +
+        `Action: ${data.id}\n` +
+        `Risk: ${risk}\n\n` +
+        `The action was stopped before execution.`,
+        "danger"
+      );
+
+    } else if (
+      status === "PAUSED"
+    ) {
+
+      demoSetStatus(
+        `🟠 PAUSED\n\n` +
+        `Action: ${data.id}\n` +
+        `Risk: ${risk}\n\n` +
+        `The action executed, the filesystem diff was inspected, ` +
+        `and human approval is required.`,
+        "warning"
+      );
+
+    } else if (
+      status === "COMPLETED"
+    ) {
+
+      demoSetStatus(
+        `🟢 COMPLETED\n\n` +
+        `Action: ${data.id}\n` +
+        `Risk: ${risk}`,
+        "success"
+      );
+
+    } else {
+
+      demoSetStatus(
+        `Action ${data.id} → ${status}\nRisk: ${risk}`
+      );
+
+    }
+
+
+    await load();
+
+    return data;
+
+  } catch (error) {
+
+    if (
+      error.message !==
+      "Not authenticated"
+    ) {
+
+      demoSetStatus(
+        error.message ||
+        "Demo action failed.",
+        "danger"
+      );
+
+    }
+
+    return null;
+
+  }
+
 }
 
-function escapeHtml(s) {
-  const d = document.createElement("div");
-  d.innerText = s == null ? "" : String(s);
-  return d.innerHTML;
+
+/* ============================================================
+   INITIALIZE DEMO WORKSPACE
+============================================================ */
+
+async function initializeDemoWorkspace() {
+
+  /*
+   * We create the demo files inside the Solari sandbox.
+   *
+   * No destructive operation is performed here.
+   *
+   * This gives the later demo actions something real to
+   * protect and recover.
+   */
+
+  const command =
+    "mkdir -p reports bulk_data " +
+    "&& printf '%s\\n' 'DEMO_SECRET=do-not-expose' > secrets.env " +
+    "&& printf '%s\\n' 'Demo report' > reports/report.txt " +
+    "&& for i in $(seq -w 1 25); do " +
+    "printf 'bulk demo %s\\n' \"$i\" > \"bulk_data/file_$i.dat\"; " +
+    "done";
+
+  return submitDemoAction(
+    "shell.execute",
+    "Prepare the demo workspace for safe testing",
+    null,
+    {
+      command: command
+    }
+  );
+
 }
 
-// Boot: show the app if a token is already stored, otherwise the login gate.
-if (getToken()) { showApp(); } else { showAuthGate(""); }
 
-// Auto-poll every 2.5s if a session id is present, so this stays live during a demo.
-setInterval(() => { if (getToken() && document.getElementById("sessionId").value.trim() && window.currentSessionStatus === "running") load(); }, 2500);
+/* ============================================================
+   SAFE ACTION
+============================================================ */
+
+async function demoSafeAction() {
+
+  return submitDemoAction(
+
+    "file.write",
+
+    "Create a harmless action summary",
+
+    "demo_summary.md",
+
+    {
+      content:
+        "# CHECKPOINT Demo\n\n" +
+        "This file was created by a safe agent action.\n"
+    }
+
+  );
+
+}
+
+
+/* ============================================================
+   SECRET DELETION
+============================================================ */
+
+async function demoSecretDelete() {
+
+  return submitDemoAction(
+
+    "file.delete",
+
+    "Remove a temporary project file",
+
+    "secrets.env",
+
+    {}
+
+  );
+
+}
+
+
+/* ============================================================
+   INTENT MISMATCH
+============================================================ */
+
+async function demoIntentMismatch() {
+
+  return submitDemoAction(
+
+    "shell.execute",
+
+    "Organize the reports folder",
+
+    null,
+
+    {
+      command:
+        "rm -rf reports"
+    }
+
+  );
+
+}
+
+
+/* ============================================================
+   BULK DELETE
+============================================================ */
+
+async function demoBulkDelete() {
+
+  const command =
+    `python -c "import os; ` +
+    `[os.remove(os.path.join('bulk_data',f)) ` +
+    `for f in os.listdir('bulk_data')]"`;
+
+
+  return submitDemoAction(
+
+    "shell.execute",
+
+    "Inspect and process the bulk data directory",
+
+    null,
+
+    {
+      command:
+        command
+    }
+
+  );
+
+}
+
+
+/* ============================================================
+   PAUSED ACTION LOOKUP
+============================================================ */
+
+async function getLatestPausedAction() {
+
+  const sessionId =
+    requireDemoSession();
+
+  if (!sessionId) {
+    throw new Error(
+      "No session selected."
+    );
+  }
+
+
+  const response =
+    await api(
+      `/sessions/${encodeURIComponent(sessionId)}/timeline`
+    );
+
+
+  const data =
+    await response.json();
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      data.detail ||
+      "Unable to load timeline."
+    );
+
+  }
+
+
+  const paused =
+    (data.actions || [])
+      .filter(
+        entry =>
+          entry.action &&
+          entry.action.status ===
+            "paused"
+      );
+
+
+  if (!paused.length) {
+
+    throw new Error(
+      "No paused action is currently waiting for approval."
+    );
+
+  }
+
+
+  return paused[
+    paused.length - 1
+  ].action;
+
+}
+
+
+/* ============================================================
+   APPROVE PAUSED ACTION
+============================================================ */
+
+async function approveLatestPaused() {
+
+  try {
+
+    const action =
+      await getLatestPausedAction();
+
+
+    demoSetStatus(
+      `Approving ${action.id}…`,
+      "warning"
+    );
+
+
+    const response =
+      await api(
+        `/actions/${encodeURIComponent(action.id)}/approve`,
+        {
+          method: "POST"
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.detail ||
+        "Unable to approve action."
+      );
+
+    }
+
+
+    demoSetStatus(
+      `✓ Action approved\n\n` +
+      `Action: ${action.id}\n` +
+      `Status: ${data.status}`,
+      "success"
+    );
+
+
+    await load();
+
+  } catch (error) {
+
+    if (
+      error.message !==
+      "Not authenticated"
+    ) {
+
+      demoSetStatus(
+        error.message ||
+        "Approval failed.",
+        "danger"
+      );
+
+    }
+
+  }
+
+}
+
+
+/* ============================================================
+   REJECT + RECOVER
+============================================================ */
+
+async function rejectLatestPaused() {
+
+  try {
+
+    const action =
+      await getLatestPausedAction();
+
+
+    demoSetStatus(
+      `Rejecting ${action.id} and restoring checkpoint…`,
+      "warning"
+    );
+
+
+    const response =
+      await api(
+        `/actions/${encodeURIComponent(action.id)}/reject?rollback=true`,
+        {
+          method: "POST"
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.detail ||
+        "Recovery failed."
+      );
+
+    }
+
+
+    demoSetStatus(
+      `↩ Action rejected\n\n` +
+      `Action: ${action.id}\n` +
+      `Status: ${data.status}\n\n` +
+      `Checkpoint recovery was requested.`,
+      "success"
+    );
+
+
+    await load();
+
+  } catch (error) {
+
+    if (
+      error.message !==
+      "Not authenticated"
+    ) {
+
+      demoSetStatus(
+        error.message ||
+        "Recovery failed.",
+        "danger"
+      );
+
+    }
+
+  }
+
+}
+
+
+/* ============================================================
+   DIRECT TIMELINE APPROVAL BUTTONS
+============================================================ */
+
+async function approveAction(
+  actionId
+) {
+
+  try {
+
+    const response =
+      await api(
+        `/actions/${encodeURIComponent(actionId)}/approve`,
+        {
+          method: "POST"
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.detail ||
+        "Unable to approve action."
+      );
+
+    }
+
+
+    demoSetStatus(
+      `✓ Action ${actionId} approved.`,
+      "success"
+    );
+
+
+    await load();
+
+  } catch (error) {
+
+    demoSetStatus(
+      error.message ||
+      "Approval failed.",
+      "danger"
+    );
+
+  }
+
+}
+
+
+async function rejectAction(
+  actionId
+) {
+
+  try {
+
+    const response =
+      await api(
+        `/actions/${encodeURIComponent(actionId)}/reject?rollback=true`,
+        {
+          method: "POST"
+        }
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        data.detail ||
+        "Unable to reject/recover action."
+      );
+
+    }
+
+
+    demoSetStatus(
+      `↩ Action ${actionId} rejected.\n` +
+      `Recovery requested.`,
+      "success"
+    );
+
+
+    await load();
+
+  } catch (error) {
+
+    demoSetStatus(
+      error.message ||
+      "Recovery failed.",
+      "danger"
+    );
+
+  }
+
+}
+
+
+/* ============================================================
+   DEMO REFRESH
+============================================================ */
+
+async function refreshDemoTimeline() {
+
+  await load();
+
+}
+
+
+/* ============================================================
+   INITIAL PAGE STATE
+============================================================ */
+
+window.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    const token =
+      getToken();
+
+    if (token) {
+
+      showApp();
+
+      const storedSession =
+        sessionStorage.getItem(
+          "checkpoint_session_id"
+        );
+
+      if (storedSession) {
+
+        document
+          .getElementById(
+            "sessionId"
+          )
+          .value =
+            storedSession;
+
+        load();
+
+      }
+
+    } else {
+
+      showAuthGate("");
+
+    }
+
+  }
+);
+
+
+/*
+ * Keep the current session ID available across refreshes.
+ */
+
+document
+  .getElementById(
+    "sessionId"
+  )
+  .addEventListener(
+    "input",
+    event => {
+
+      const value =
+        event.target.value.trim();
+
+      if (value) {
+
+        sessionStorage.setItem(
+          "checkpoint_session_id",
+          value
+        );
+
+      } else {
+
+        sessionStorage.removeItem(
+          "checkpoint_session_id"
+        );
+
+      }
+
+    }
+  );
+
 </script>
+
 </body>
 </html>
