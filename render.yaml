@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: checkpoint-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: 0.5c-512mb
+    healthCheckPath: /health
+    numInstances: 1
+    envVars:
+      - key: CHECKPOINT_ENV
+        value: production
+      - key: CHECKPOINT_JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: checkpoint-db
+          property: connectionString
+      - key: CHECKPOINT_CORS_ORIGINS
+        sync: false
+      - key: CHECKPOINT_ALLOW_LOCAL_FALLBACK
+        value: "false"
+      - key: SOLARI_BASE_URL
+        value: https://api.getsolari.com
+      - key: CHECKPOINT_MAX_ACTIVE_SESSIONS
+        value: "3"
+      - key: CHECKPOINT_MAX_ACTIONS_PER_SESSION
+        value: "100"
+      - key: CHECKPOINT_SESSION_IDLE_TIMEOUT_MIN
+        value: "30"
+      - key: CHECKPOINT_SESSION_MAX_LIFETIME_MIN
+        value: "120"
+      - key: CHECKPOINT_CLEANUP_INTERVAL_SEC
+        value: "60"
+      - key: CHECKPOINT_SOLARI_IDLE_TIMEOUT_MIN
+        value: "35"
+
+databases:
+  - name: checkpoint-db
+    plan: 0.1c-256mb
+    databaseName: checkpoint
+    user: checkpoint

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local runtime state
+backend/db/checkpoint.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Solari / demo artifacts
+*.log
+.DS_Store
+Thumbs.db

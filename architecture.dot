@@ -1,0 +1,32 @@
+digraph G {
+  graph [rankdir=LR, bgcolor="#0f1115", pad="0.2", nodesep="0.35", ranksep="0.45"];
+  node [shape=box, style="rounded,filled", fontname="Arial", fontsize=12, margin="0.16,0.10", color="#3b4252", fontcolor="#e6e8eb", fillcolor="#171a21"];
+  edge [color="#8b909c", penwidth=1.4, arrowsize=0.7];
+  agent [label="AI Agent"];
+  intercept [label="Checkpoint\nAction Interceptor"];
+  riskpre [label="Pre-action Risk Engine\nDeterministic Rules"];
+  snap [label="Recovery Checkpoint\nBefore mutation"];
+  exec [label="Sandbox Runtime\nSolari / Local dev"];
+  diff [label="Filesystem Diff\nBefore / After"];
+  riskpost [label="Post-action Risk Engine\nDiff-aware"];
+  allow [label="ALLOW", fillcolor="#183a2b"];
+  pause [label="PAUSE\nHuman approval", fillcolor="#4a3d12"];
+  block [label="BLOCK", fillcolor="#4a171b"];
+  approve [label="APPROVE\nContinue"];
+  reject [label="REJECT\nRollback"];
+  revert [label="Runtime Restore\nTransactional recovery"];
+  timeline [label="Timeline UI\nActions · Risk · Diff · Rollback"];
+  agent -> intercept -> riskpre;
+  riskpre -> block [label="dangerous"];
+  riskpre -> snap [label="safe / suspicious"];
+  snap -> exec;
+  exec -> diff -> riskpost;
+  riskpost -> allow;
+  riskpost -> pause [label="dangerous after execution"];
+  pause -> approve;
+  pause -> reject;
+  reject -> revert -> timeline;
+  allow -> timeline;
+  block -> timeline;
+  approve -> timeline;
+}
