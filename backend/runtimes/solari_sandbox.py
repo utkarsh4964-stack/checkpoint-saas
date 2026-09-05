@@ -249,7 +249,6 @@ class SolariSandboxRuntime(SandboxRuntime):
                 template=self._template,
                 timeout_ms=settings.SOLARI_IDLE_TIMEOUT_MINUTES * 60 * 1000,
             )
-            await sb.connect()
             return client, sb
 
         self._client, self._sandbox = self._run_async(_boot())
