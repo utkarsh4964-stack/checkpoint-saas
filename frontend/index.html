@@ -1,2585 +1,4482 @@
-]<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Checkpoint — AI Agent Safety</title>
+
+<title>CHECKPOINT — AI Agent Control Plane</title>
 
 <style>
-  :root {
-    --bg: #0f1115;
-    --card: #171a21;
-    --card2: #10131a;
-    --border: #2a2e38;
-    --text: #e6e8eb;
-    --muted: #8b909c;
+/* =========================================================
+   CHECKPOINT — MINIMAL AESTHETIC UI
+   ========================================================= */
 
-    --green: #48bb78;
-    --green-text: #9ae6b4;
+:root {
+    --bg: #080a0d;
+    --bg-soft: #0d1015;
+    --panel: #10141a;
+    --panel-2: #0c1015;
 
-    --red: #f56565;
-    --red-text: #feb2b2;
+    --border: rgba(255,255,255,.075);
+    --border-hover: rgba(255,255,255,.14);
 
-    --yellow: #ecc94b;
-    --yellow-text: #faf089;
+    --text: #f4f7fb;
+    --text-2: #b5becb;
+    --muted: #737e8d;
 
-    --blue: #63b3ed;
-    --blue-text: #bee3f8;
-  }
+    --blue: #7da7ff;
+    --cyan: #71e4dc;
 
-  * {
+    --green: #54d98b;
+    --yellow: #e9c75f;
+    --red: #ff6673;
+
+    --radius: 14px;
+
+    --shadow:
+        0 20px 60px rgba(0,0,0,.35);
+
+    --transition:
+        180ms cubic-bezier(.2,.7,.2,1);
+}
+
+/* ---------------------------------------------------------
+   RESET
+--------------------------------------------------------- */
+
+* {
     box-sizing: border-box;
-  }
+}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+html {
+    scroll-behavior: smooth;
+}
+
+body {
     margin: 0;
-    padding: 24px;
-  }
+    min-height: 100vh;
 
-  h1 {
-    font-size: 20px;
-    font-weight: 600;
-    margin: 0 0 4px;
-  }
+    background:
+        radial-gradient(
+            circle at 15% -10%,
+            rgba(86,119,180,.16),
+            transparent 35%
+        ),
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(54,139,132,.09),
+            transparent 30%
+        ),
+        var(--bg);
 
-  h2 {
-    font-size: 14px;
-    margin: 0 0 6px;
-  }
-
-  .sub {
-    color: var(--muted);
-    font-size: 13px;
-    margin-bottom: 20px;
-  }
-
-  .row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  input,
-  button {
-    background: var(--card);
     color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 8px 10px;
-    font-size: 13px;
-  }
 
-  input:focus {
-    outline: none;
-    border-color: #4a5568;
-  }
+    font-family:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+}
 
-  button {
+/* subtle animated grid */
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+
+    pointer-events: none;
+
+    background-image:
+        linear-gradient(
+            rgba(255,255,255,.018) 1px,
+            transparent 1px
+        ),
+        linear-gradient(
+            90deg,
+            rgba(255,255,255,.018) 1px,
+            transparent 1px
+        );
+
+    background-size: 50px 50px;
+
+    mask-image:
+        linear-gradient(
+            to bottom,
+            black,
+            transparent 75%
+        );
+
+    animation: gridMove 25s linear infinite;
+}
+
+@keyframes gridMove {
+    from {
+        transform: translateY(0);
+    }
+
+    to {
+        transform: translateY(50px);
+    }
+}
+
+button,
+input {
+    font: inherit;
+}
+
+button {
     cursor: pointer;
-  }
+}
 
-  button:hover {
-    border-color: #657085;
-  }
+/* ---------------------------------------------------------
+   AUTH
+--------------------------------------------------------- */
 
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+.auth-screen {
+    min-height: 100vh;
 
-  .summary {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-  }
-
-  .stat {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 16px;
-    min-width: 90px;
-  }
-
-  .stat .n {
-    font-size: 22px;
-    font-weight: 700;
-  }
-
-  .stat .l {
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .setup {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 16px;
-  }
-
-  .setup p {
-    color: var(--muted);
-    font-size: 12px;
-    line-height: 1.5;
-    margin: 0 0 12px;
-  }
-
-  .setup-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
+    place-items: center;
 
-  .setup input {
-    width: 100%;
-  }
+    padding: 24px;
 
-  .small {
-    color: var(--muted);
-    font-size: 11px;
-    margin-top: 8px;
-  }
+    position: relative;
+    overflow: hidden;
+}
 
-  .error {
-    color: var(--red-text);
-    font-size: 12px;
-    margin-top: 8px;
-  }
+.auth-glow {
+    position: absolute;
 
-  .quota {
-    color: var(--muted);
-    font-size: 11px;
-    margin-top: 6px;
-    margin-bottom: 16px;
-  }
+    width: 500px;
+    height: 500px;
 
-  .topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
+    border-radius: 50%;
 
-  .who {
-    font-size: 12px;
-    color: var(--muted);
-  }
+    background:
+        radial-gradient(
+            circle,
+            rgba(100,140,230,.14),
+            transparent 65%
+        );
 
-  .who button {
-    margin-left: 8px;
-    font-size: 11px;
-    padding: 4px 8px;
-  }
+    filter: blur(20px);
 
-  .hidden {
-    display: none !important;
-  }
+    animation: breathe 6s ease-in-out infinite;
+}
 
-  /* ---------------------------------------------------------
-     Timeline
-  --------------------------------------------------------- */
+@keyframes breathe {
+    0%,100% {
+        transform: scale(.95);
+        opacity: .6;
+    }
 
-  .action {
-    background: var(--card);
+    50% {
+        transform: scale(1.08);
+        opacity: 1;
+    }
+}
+
+.auth-card {
+    width: min(440px,100%);
+
+    position: relative;
+    z-index: 1;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(18,23,31,.94),
+            rgba(11,14,19,.96)
+        );
+
     border: 1px solid var(--border);
-    border-left-width: 4px;
-    border-radius: 8px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
-  }
 
-  .action .top {
+    border-radius: 20px;
+
+    padding: 34px;
+
+    box-shadow: var(--shadow);
+
+    animation:
+        authEnter .6s cubic-bezier(.2,.8,.2,1);
+}
+
+@keyframes authEnter {
+    from {
+        opacity: 0;
+        transform: translateY(18px) scale(.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.brand {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     gap: 12px;
-  }
+}
 
-  .intent {
-    font-weight: 600;
-    font-size: 14px;
-  }
+.logo {
+    width: 38px;
+    height: 38px;
 
-  .meta {
-    color: var(--muted);
-    font-size: 12px;
-    margin-top: 4px;
-  }
-
-  .badge {
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .risk {
-    font-size: 12px;
-    margin-left: 8px;
-    color: var(--muted);
-  }
-
-  .findings {
-    margin-top: 8px;
-    font-size: 12px;
-    color: #f6ad55;
-  }
-
-  .finding-row {
-    margin-top: 3px;
-  }
-
-  .details {
-    margin-top: 10px;
-    padding: 10px;
-    background: var(--card2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 12px;
-  }
-
-  .details-grid {
     display: grid;
-    grid-template-columns: 110px 1fr;
-    gap: 5px 10px;
-  }
+    place-items: center;
 
-  .details-label {
-    color: var(--muted);
-  }
+    border-radius: 11px;
 
-  .diff-title {
-    margin-top: 10px;
-    font-weight: 700;
-  }
+    border: 1px solid rgba(125,167,255,.3);
 
-  .diff-list {
-    margin: 6px 0 0;
-    padding-left: 18px;
-  }
+    background:
+        linear-gradient(
+            145deg,
+            #182641,
+            #0c1421
+        );
 
-  .diff-removed {
-    color: var(--red-text);
-  }
+    color: var(--cyan);
 
-  .diff-added {
-    color: var(--green-text);
-  }
+    font-weight: 900;
 
-  .diff-modified {
-    color: var(--yellow-text);
-  }
+    box-shadow:
+        0 0 30px rgba(110,160,255,.12);
+}
 
-  .approval-row {
-    margin-top: 10px;
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .approval-row button {
-    font-weight: 600;
-    font-size: 12px;
-    padding: 6px 12px;
-  }
-
-  .btn-approve {
-    border-color: var(--green) !important;
-    color: var(--green-text);
-  }
-
-  .btn-reject {
-    border-color: var(--red) !important;
-    color: var(--red-text);
-  }
-
-  .btn-warning {
-    border-color: var(--yellow) !important;
-    color: var(--yellow-text);
-  }
-
-  .btn-blue {
-    border-color: var(--blue) !important;
-    color: var(--blue-text);
-  }
-
-  .action-note {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 6px;
-    font-style: italic;
-  }
-
-  .status-completed {
-    border-left-color: var(--green);
-  }
-
-  .status-blocked {
-    border-left-color: var(--red);
-  }
-
-  .status-paused {
-    border-left-color: var(--yellow);
-  }
-
-  .status-approved {
-    border-left-color: var(--green);
-  }
-
-  .status-rejected,
-  .status-rolled_back {
-    border-left-color: #a0aec0;
-  }
-
-  .status-failed,
-  .status-recovery_failed {
-    border-left-color: var(--red);
-  }
-
-  .status-expired {
-    border-left-color: #718096;
-  }
-
-  .badge-completed,
-  .badge-approved {
-    background: #22543d;
-    color: var(--green-text);
-  }
-
-  .badge-blocked {
-    background: #63171b;
-    color: var(--red-text);
-  }
-
-  .badge-paused {
-    background: #5f4c07;
-    color: var(--yellow-text);
-  }
-
-  .badge-rejected,
-  .badge-rolled_back {
-    background: #2d3748;
-    color: #cbd5e0;
-  }
-
-  .badge-failed,
-  .badge-recovery_failed {
-    background: #63171b;
-    color: var(--red-text);
-  }
-
-  .empty {
-    color: var(--muted);
-    font-size: 13px;
-    padding: 40px 0;
-    text-align: center;
-  }
-
-  /* ---------------------------------------------------------
-     Demo Lab
-  --------------------------------------------------------- */
-
-  .demo-lab {
-    border-color: #3b4352;
-  }
-
-  .demo-lab-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-
-  .demo-lab-title {
+.brand-name {
+    font-weight: 800;
+    letter-spacing: .13em;
     font-size: 15px;
-    font-weight: 700;
-  }
+}
 
-  .demo-lab-subtitle {
+.brand-sub {
+    display: block;
+
     color: var(--muted);
-    font-size: 11px;
-    line-height: 1.5;
-    margin-top: 4px;
-  }
 
-  .demo-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 14px;
-  }
+    font-size: 9px;
 
-  .demo-card {
-    background: var(--card2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
-  }
+    letter-spacing: .13em;
 
-  .demo-title {
+    margin-top: 2px;
+}
+
+.auth-card h1 {
+    font-size: 28px;
+
+    letter-spacing: -.04em;
+
+    margin:
+        28px 0 8px;
+}
+
+.auth-description {
+    color: var(--muted);
+
     font-size: 13px;
+
+    line-height: 1.65;
+
+    margin-bottom: 25px;
+}
+
+.form {
+    display: grid;
+    gap: 12px;
+}
+
+.field {
+    display: grid;
+    gap: 6px;
+}
+
+.field label {
+    font-size: 10px;
+
+    color: var(--muted);
+
+    letter-spacing: .1em;
+
     font-weight: 700;
-    margin-bottom: 6px;
-  }
+}
 
-  .demo-description {
-    color: var(--muted);
-    font-size: 11px;
-    line-height: 1.5;
-    min-height: 50px;
-    margin-bottom: 10px;
-  }
-
-  .demo-card button {
+.field input {
     width: 100%;
-    font-weight: 600;
-  }
 
-  .demo-controls {
+    background: #080b10;
+
+    border:
+        1px solid var(--border);
+
+    color: var(--text);
+
+    padding:
+        12px 13px;
+
+    border-radius: 9px;
+
+    outline: none;
+
+    transition: var(--transition);
+}
+
+.field input::placeholder {
+    color: #4f5967;
+}
+
+.field input:focus {
+    border-color:
+        rgba(125,167,255,.5);
+
+    box-shadow:
+        0 0 0 3px
+        rgba(125,167,255,.08);
+}
+
+.auth-actions {
+    display: grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 9px;
+
+    margin-top: 14px;
+}
+
+.security-note {
+    border-top:
+        1px solid var(--border);
+
+    margin-top: 22px;
+
+    padding-top: 17px;
+
+    text-align: center;
+
+    color: #566171;
+
+    font-size: 10px;
+}
+
+.status-message {
+    min-height: 18px;
+
+    margin-top: 11px;
+
+    color: var(--muted);
+
+    font-size: 11px;
+}
+
+/* ---------------------------------------------------------
+   BUTTONS
+--------------------------------------------------------- */
+
+.btn {
+    border:
+        1px solid var(--border);
+
+    background:
+        rgba(255,255,255,.025);
+
+    color:
+        var(--text);
+
+    border-radius: 9px;
+
+    padding:
+        10px 13px;
+
+    font-size: 12px;
+
+    font-weight: 700;
+
+    transition:
+        transform var(--transition),
+        border-color var(--transition),
+        background var(--transition),
+        box-shadow var(--transition);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+
+    border-color:
+        var(--border-hover);
+
+    background:
+        rgba(255,255,255,.05);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn.primary {
+    background:
+        linear-gradient(
+            135deg,
+            #557fc9,
+            #385d9d
+        );
+
+    border-color:
+        rgba(130,170,255,.45);
+
+    box-shadow:
+        0 8px 25px
+        rgba(65,105,180,.18);
+}
+
+.btn.green {
+    color: #86e8ad;
+
+    border-color:
+        rgba(84,217,139,.25);
+
+    background:
+        rgba(84,217,139,.055);
+}
+
+.btn.yellow {
+    color: #f0d578;
+
+    border-color:
+        rgba(233,199,95,.25);
+
+    background:
+        rgba(233,199,95,.05);
+}
+
+.btn.red {
+    color: #ff9da6;
+
+    border-color:
+        rgba(255,102,115,.25);
+
+    background:
+        rgba(255,102,115,.055);
+}
+
+.btn:disabled {
+    opacity: .45;
+
+    cursor: not-allowed;
+
+    transform: none;
+}
+
+/* ---------------------------------------------------------
+   APP SHELL
+--------------------------------------------------------- */
+
+.app {
+    min-height: 100vh;
+
+    display: grid;
+
+    grid-template-columns:
+        230px 1fr;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ---------------------------------------------------------
+   SIDEBAR
+--------------------------------------------------------- */
+
+.sidebar {
+    position: sticky;
+
+    top: 0;
+
+    height: 100vh;
+
+    padding:
+        22px 14px;
+
+    border-right:
+        1px solid var(--border);
+
+    background:
+        rgba(7,9,13,.82);
+
+    backdrop-filter:
+        blur(20px);
+
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
-  }
 
-  .demo-controls button {
+    flex-direction: column;
+
+    z-index: 10;
+}
+
+.sidebar-brand {
+    padding:
+        2px 9px 27px;
+}
+
+.sidebar-nav {
+    display: grid;
+
+    gap: 4px;
+}
+
+.nav-item {
+    width: 100%;
+
+    border: 0;
+
+    background: transparent;
+
+    color: #7f8998;
+
+    text-align: left;
+
+    padding:
+        10px 11px;
+
+    border-radius: 9px;
+
     font-size: 12px;
-  }
 
-  .demo-status {
-    margin-top: 12px;
-    padding: 10px;
-    background: var(--card2);
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    font-size: 12px;
+    transition: var(--transition);
+}
+
+.nav-item:hover {
+    color: var(--text-2);
+
+    background:
+        rgba(255,255,255,.035);
+}
+
+.nav-item.active {
+    color: var(--text);
+
+    background:
+        rgba(255,255,255,.06);
+}
+
+.nav-icon {
+    width: 18px;
+
+    display: inline-block;
+
+    color: #667282;
+}
+
+.sidebar-bottom {
+    margin-top: auto;
+}
+
+.runtime-status {
+    display: flex;
+
+    align-items: center;
+
+    gap: 9px;
+
+    padding:
+        10px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 10px;
+
+    background:
+        rgba(255,255,255,.02);
+
     color: var(--muted);
-    white-space: pre-wrap;
-  }
 
-  .demo-status.success {
-    border-color: #2f7651;
-    color: var(--green-text);
-  }
+    font-size: 10px;
+}
 
-  .demo-status.warning {
-    border-color: #75651c;
-    color: var(--yellow-text);
-  }
+.status-dot {
+    width: 7px;
+    height: 7px;
 
-  .demo-status.danger {
-    border-color: #8b3b43;
-    color: var(--red-text);
-  }
+    border-radius: 50%;
 
-  .demo-workspace {
-    margin-top: 12px;
-    padding: 10px;
-    background: var(--card2);
-    border: 1px solid var(--border);
-    border-radius: 7px;
-  }
+    background: #596372;
+}
 
-  .demo-workspace-title {
-    font-size: 11px;
+.status-dot.live {
+    background: var(--green);
+
+    box-shadow:
+        0 0 12px
+        rgba(84,217,139,.75);
+
+    animation:
+        statusPulse 2s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+    0%,100% {
+        opacity: .6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+/* ---------------------------------------------------------
+   MAIN
+--------------------------------------------------------- */
+
+.main {
+    min-width: 0;
+}
+
+/* ---------------------------------------------------------
+   TOPBAR
+--------------------------------------------------------- */
+
+.topbar {
+    height: 67px;
+
+    position: sticky;
+
+    top: 0;
+
+    z-index: 8;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding:
+        0 30px;
+
+    border-bottom:
+        1px solid var(--border);
+
+    background:
+        rgba(8,10,13,.74);
+
+    backdrop-filter:
+        blur(18px);
+}
+
+.top-title {
+    font-size: 13px;
+
+    font-weight: 700;
+}
+
+.top-subtitle {
     color: var(--muted);
-    margin-bottom: 6px;
-  }
 
-  .workspace-tree {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 11px;
+    font-size: 10px;
+
+    margin-top: 2px;
+}
+
+.top-right {
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+}
+
+.connection-pill {
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    padding:
+        7px 10px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 999px;
+
+    background:
+        rgba(255,255,255,.025);
+
+    color: var(--muted);
+
+    font-size: 10px;
+}
+
+.user-pill {
+    color: var(--text-2);
+
+    border:
+        1px solid var(--border);
+
+    background:
+        rgba(255,255,255,.025);
+
+    padding:
+        7px 10px;
+
+    border-radius: 999px;
+
+    font-size: 10px;
+}
+
+.user-pill button {
+    border: 0;
+
+    background: none;
+
+    color: var(--muted);
+
+    margin-left: 7px;
+
+    cursor: pointer;
+}
+
+/* ---------------------------------------------------------
+   CONTENT
+--------------------------------------------------------- */
+
+.content {
+    width: min(1380px,100%);
+
+    margin:
+        0 auto;
+
+    padding:
+        34px 30px 80px;
+}
+
+.section {
+    scroll-margin-top: 90px;
+
+    animation:
+        sectionEnter .6s both;
+}
+
+@keyframes sectionEnter {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* ---------------------------------------------------------
+   HERO
+--------------------------------------------------------- */
+
+.hero {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: flex-end;
+
+    gap: 30px;
+
+    margin-bottom: 28px;
+}
+
+.eyebrow {
+    color: #657284;
+
+    font-size: 9px;
+
+    letter-spacing: .16em;
+
+    text-transform: uppercase;
+
+    font-weight: 800;
+}
+
+.hero h1 {
+    max-width: 700px;
+
+    font-size:
+        clamp(30px,4vw,46px);
+
+    line-height: 1.04;
+
+    letter-spacing: -.055em;
+
+    margin:
+        8px 0 12px;
+}
+
+.hero p {
+    max-width: 720px;
+
+    color: var(--muted);
+
+    font-size: 13px;
+
     line-height: 1.7;
-    color: #cbd5e0;
-  }
 
-  code {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.9em;
-  }
+    margin: 0;
+}
 
-  @media (max-width: 700px) {
-    .setup-grid {
-      grid-template-columns: 1fr;
+.hero-actions {
+    display: flex;
+
+    gap: 8px;
+
+    flex-wrap: wrap;
+}
+
+/* ---------------------------------------------------------
+   METRICS
+--------------------------------------------------------- */
+
+.metrics {
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(4,1fr);
+
+    gap: 11px;
+
+    margin-bottom: 16px;
+}
+
+.metric {
+    position: relative;
+
+    overflow: hidden;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(19,24,32,.85),
+            rgba(12,16,22,.92)
+        );
+
+    border:
+        1px solid var(--border);
+
+    border-radius:
+        var(--radius);
+
+    padding: 17px;
+
+    transition:
+        transform var(--transition),
+        border-color var(--transition);
+}
+
+.metric::after {
+    content: "";
+
+    position: absolute;
+
+    width: 100px;
+    height: 100px;
+
+    right: -45px;
+    top: -50px;
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(125,167,255,.1),
+            transparent 70%
+        );
+}
+
+.metric:hover {
+    transform:
+        translateY(-2px);
+
+    border-color:
+        var(--border-hover);
+}
+
+.metric-label {
+    color: var(--muted);
+
+    font-size: 9px;
+
+    text-transform: uppercase;
+
+    letter-spacing: .12em;
+}
+
+.metric-number {
+    font-size: 28px;
+
+    font-weight: 800;
+
+    letter-spacing: -.04em;
+
+    margin-top: 8px;
+}
+
+.metric-hint {
+    color: #566171;
+
+    font-size: 10px;
+
+    margin-top: 2px;
+}
+
+/* ---------------------------------------------------------
+   GRID
+--------------------------------------------------------- */
+
+.main-grid {
+    display:
+        grid;
+
+    grid-template-columns:
+        minmax(0,1.45fr)
+        minmax(300px,.65fr);
+
+    gap: 13px;
+}
+
+.card {
+    background:
+        rgba(14,18,24,.88);
+
+    border:
+        1px solid var(--border);
+
+    border-radius:
+        var(--radius);
+
+    box-shadow:
+        0 16px 45px
+        rgba(0,0,0,.18);
+
+    overflow: hidden;
+}
+
+.card-header {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 15px;
+
+    padding:
+        16px 18px;
+
+    border-bottom:
+        1px solid var(--border);
+}
+
+.card-title {
+    font-size: 12px;
+
+    font-weight: 800;
+}
+
+.card-description {
+    color: var(--muted);
+
+    font-size: 10px;
+
+    margin-top: 2px;
+}
+
+.card-body {
+    padding: 18px;
+}
+
+/* ---------------------------------------------------------
+   CONNECTION
+--------------------------------------------------------- */
+
+.connection-grid {
+    display:
+        grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 10px;
+}
+
+.connection-actions {
+    grid-column: 1/-1;
+
+    display: flex;
+
+    gap: 8px;
+
+    flex-wrap: wrap;
+
+    margin-top: 3px;
+}
+
+.notice {
+    margin-top: 11px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 9px;
+
+    padding:
+        10px 11px;
+
+    color: #657284;
+
+    background:
+        rgba(255,255,255,.018);
+
+    font-size: 10px;
+}
+
+/* ---------------------------------------------------------
+   PIPELINE
+--------------------------------------------------------- */
+
+.pipeline {
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(6,1fr);
+
+    gap: 7px;
+}
+
+.pipeline-step {
+    position: relative;
+
+    border:
+        1px solid var(--border);
+
+    background:
+        #0a0e13;
+
+    border-radius: 10px;
+
+    padding:
+        11px 7px;
+
+    text-align: center;
+
+    color: #677384;
+
+    font-size: 9px;
+
+    transition: var(--transition);
+}
+
+.pipeline-step strong {
+    display: block;
+
+    color: #d7dfe9;
+
+    font-size: 10px;
+
+    margin-bottom: 4px;
+}
+
+.pipeline-step.active {
+    border-color:
+        rgba(113,228,220,.3);
+
+    box-shadow:
+        0 0 20px
+        rgba(113,228,220,.06);
+
+    animation:
+        pipelinePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes pipelinePulse {
+    0%,100% {
+        box-shadow:
+            0 0 0
+            rgba(113,228,220,0);
     }
 
-    .demo-grid {
-      grid-template-columns: 1fr;
+    50% {
+        box-shadow:
+            0 0 24px
+            rgba(113,228,220,.1);
+    }
+}
+
+/* ---------------------------------------------------------
+   SESSION INFO
+--------------------------------------------------------- */
+
+.session-box {
+    background:
+        #080b10;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 10px;
+
+    padding: 14px;
+
+    color: #8390a1;
+
+    font:
+        11px/1.9
+        ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        monospace;
+
+    white-space: pre-wrap;
+}
+
+/* ---------------------------------------------------------
+   DEMO LAB
+--------------------------------------------------------- */
+
+.demo-header {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    gap: 20px;
+}
+
+.demo-layout {
+    display:
+        grid;
+
+    grid-template-columns:
+        .8fr 1.2fr;
+
+    gap: 13px;
+}
+
+.workspace {
+    background:
+        #080b10;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 11px;
+
+    padding: 16px;
+
+    font:
+        11px/1.9
+        ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        monospace;
+
+    color: #8f9bab;
+}
+
+.folder {
+    color: var(--blue);
+}
+
+.secret {
+    color: #ff8e99;
+}
+
+.bulk {
+    color: #e8ca68;
+}
+
+.scenarios {
+    display:
+        grid;
+
+    grid-template-columns:
+        1fr 1fr;
+
+    gap: 9px;
+}
+
+.scenario {
+    border:
+        1px solid var(--border);
+
+    border-radius: 11px;
+
+    padding: 14px;
+
+    background:
+        rgba(255,255,255,.012);
+
+    transition:
+        transform var(--transition),
+        border-color var(--transition),
+        background var(--transition);
+}
+
+.scenario:hover {
+    transform:
+        translateY(-2px);
+
+    border-color:
+        var(--border-hover);
+
+    background:
+        rgba(255,255,255,.025);
+}
+
+.scenario-title {
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+
+    font-size: 11px;
+
+    font-weight: 800;
+}
+
+.scenario-description {
+    color: var(--muted);
+
+    font-size: 10px;
+
+    line-height: 1.55;
+
+    min-height: 48px;
+
+    margin:
+        7px 0 11px;
+}
+
+.tag {
+    display: inline-flex;
+
+    align-items: center;
+
+    padding:
+        3px 7px;
+
+    border-radius: 999px;
+
+    font-size: 8px;
+
+    letter-spacing: .08em;
+
+    text-transform: uppercase;
+}
+
+.tag.safe {
+    color: #7fe2a7;
+
+    background:
+        rgba(84,217,139,.08);
+}
+
+.tag.danger {
+    color: #ff9ca5;
+
+    background:
+        rgba(255,102,115,.08);
+}
+
+.tag.warning {
+    color: #f1d57b;
+
+    background:
+        rgba(233,199,95,.08);
+}
+
+/* ---------------------------------------------------------
+   DEMO STATUS
+--------------------------------------------------------- */
+
+.demo-status {
+    margin-top: 12px;
+
+    padding: 13px;
+
+    min-height: 45px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 10px;
+
+    background:
+        #080b10;
+
+    color: #788596;
+
+    font:
+        10px/1.6
+        ui-monospace,
+        monospace;
+
+    white-space: pre-wrap;
+
+    transition:
+        border-color .3s,
+        color .3s;
+}
+
+.demo-status.success {
+    color: #8be7ad;
+
+    border-color:
+        rgba(84,217,139,.25);
+}
+
+.demo-status.warning {
+    color: #efd577;
+
+    border-color:
+        rgba(233,199,95,.25);
+}
+
+.demo-status.danger {
+    color: #ff9ca6;
+
+    border-color:
+        rgba(255,102,115,.25);
+}
+
+/* ---------------------------------------------------------
+   TIMELINE
+--------------------------------------------------------- */
+
+.timeline {
+    display:
+        grid;
+
+    gap: 9px;
+}
+
+.action {
+    border:
+        1px solid var(--border);
+
+    border-left:
+        3px solid #465264;
+
+    border-radius: 10px;
+
+    background:
+        rgba(255,255,255,.018);
+
+    padding: 14px;
+
+    animation:
+        actionEnter .4s both;
+
+    transition:
+        border-color var(--transition),
+        background var(--transition);
+}
+
+.action:hover {
+    background:
+        rgba(255,255,255,.028);
+}
+
+.action.completed,
+.action.approved {
+    border-left-color:
+        var(--green);
+}
+
+.action.blocked,
+.action.failed,
+.action.recovery_failed {
+    border-left-color:
+        var(--red);
+}
+
+.action.paused {
+    border-left-color:
+        var(--yellow);
+}
+
+.action-top {
+    display: flex;
+
+    justify-content: space-between;
+
+    gap: 12px;
+}
+
+.action-name {
+    font-size: 11px;
+
+    font-weight: 800;
+}
+
+.action-meta {
+    color: #687486;
+
+    font-size: 9px;
+
+    margin-top: 4px;
+}
+
+.badge {
+    padding:
+        4px 7px;
+
+    border-radius: 999px;
+
+    font-size: 8px;
+
+    font-weight: 800;
+}
+
+.badge.green {
+    background:
+        rgba(84,217,139,.08);
+
+    color: #82e5aa;
+}
+
+.badge.red {
+    background:
+        rgba(255,102,115,.08);
+
+    color: #ff9ca6;
+}
+
+.badge.yellow {
+    background:
+        rgba(233,199,95,.08);
+
+    color: #efd475;
+}
+
+.badge.gray {
+    background:
+        rgba(255,255,255,.06);
+
+    color: #a3adba;
+}
+
+.risk-line {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    margin-top: 11px;
+}
+
+.risk-bar {
+    flex: 1;
+
+    height: 4px;
+
+    border-radius: 999px;
+
+    overflow: hidden;
+
+    background:
+        #1c232d;
+}
+
+.risk-fill {
+    height: 100%;
+
+    width: 0;
+
+    border-radius: inherit;
+
+    transition:
+        width .8s cubic-bezier(.2,.8,.2,1);
+}
+
+.risk-low {
+    background: var(--green);
+}
+
+.risk-medium {
+    background: var(--yellow);
+}
+
+.risk-high {
+    background: var(--red);
+}
+
+.risk-value {
+    width: 28px;
+
+    color: #7f8b9a;
+
+    font-size: 9px;
+
+    text-align: right;
+}
+
+.findings {
+    margin-top: 10px;
+
+    padding:
+        9px 10px;
+
+    border:
+        1px solid rgba(233,199,95,.12);
+
+    border-radius: 8px;
+
+    background:
+        rgba(233,199,95,.025);
+
+    color: #d8bd62;
+
+    font-size: 9px;
+
+    line-height: 1.6;
+}
+
+.action-details {
+    margin-top: 10px;
+
+    padding-top: 10px;
+
+    border-top:
+        1px solid var(--border);
+
+    display: none;
+}
+
+.action.expanded .action-details {
+    display: block;
+
+    animation:
+        expand .25s ease;
+}
+
+@keyframes expand {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
     }
 
-    .action .top {
-      align-items: flex-start;
-      flex-direction: column;
+    to {
+        opacity: 1;
+        transform: none;
     }
-  }
+}
+
+.diff-list {
+    margin:
+        7px 0 0;
+
+    padding-left: 16px;
+
+    font:
+        9px/1.7
+        ui-monospace,
+        monospace;
+}
+
+.diff-added {
+    color: #79e2a5;
+}
+
+.diff-removed {
+    color: #ff919b;
+}
+
+.diff-modified {
+    color: #ebce6d;
+}
+
+.action-footer {
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    margin-top: 10px;
+}
+
+.expand-btn {
+    border: 0;
+
+    background: none;
+
+    color: #6d7989;
+
+    font-size: 9px;
+
+    padding: 0;
+}
+
+.approval-actions {
+    display: flex;
+
+    gap: 7px;
+}
+
+.empty {
+    text-align: center;
+
+    padding: 40px;
+
+    color: #5d6877;
+
+    font-size: 10px;
+}
+
+/* ---------------------------------------------------------
+   TOAST
+--------------------------------------------------------- */
+
+.toast-container {
+    position: fixed;
+
+    right: 20px;
+
+    bottom: 20px;
+
+    z-index: 100;
+
+    display: grid;
+
+    gap: 8px;
+}
+
+.toast {
+    min-width: 260px;
+
+    max-width: 360px;
+
+    padding:
+        12px 14px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 10px;
+
+    background:
+        rgba(15,19,26,.96);
+
+    box-shadow:
+        0 15px 45px
+        rgba(0,0,0,.35);
+
+    color: var(--text-2);
+
+    font-size: 10px;
+
+    animation:
+        toastIn .3s ease;
+}
+
+@keyframes toastIn {
+    from {
+        opacity: 0;
+        transform:
+            translateY(10px)
+            translateX(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+.toast.success {
+    border-color:
+        rgba(84,217,139,.3);
+}
+
+.toast.error {
+    border-color:
+        rgba(255,102,115,.3);
+}
+
+/* ---------------------------------------------------------
+   RESPONSIVE
+--------------------------------------------------------- */
+
+@media(max-width:1050px) {
+
+    .app {
+        grid-template-columns:
+            1fr;
+    }
+
+    .sidebar {
+        display: none;
+    }
+
+    .main-grid {
+        grid-template-columns:
+            1fr;
+    }
+
+    .demo-layout {
+        grid-template-columns:
+            1fr;
+    }
+}
+
+@media(max-width:760px) {
+
+    .topbar {
+        padding:
+            0 16px;
+    }
+
+    .content {
+        padding:
+            25px 16px 60px;
+    }
+
+    .hero {
+        display: block;
+    }
+
+    .hero-actions {
+        margin-top: 17px;
+    }
+
+    .metrics {
+        grid-template-columns:
+            1fr 1fr;
+    }
+
+    .connection-grid {
+        grid-template-columns:
+            1fr;
+    }
+
+    .pipeline {
+        grid-template-columns:
+            1fr 1fr 1fr;
+    }
+
+    .scenarios {
+        grid-template-columns:
+            1fr;
+    }
+}
+
+@media(max-width:500px) {
+
+    .metrics {
+        grid-template-columns:
+            1fr;
+    }
+
+    .pipeline {
+        grid-template-columns:
+            1fr 1fr;
+    }
+
+    .top-subtitle {
+        display: none;
+    }
+
+    .connection-pill {
+        display: none;
+    }
+
+    .auth-card {
+        padding: 25px;
+    }
+}
 </style>
 </head>
 
 <body>
 
-<div class="topbar">
-  <div>
-    <h1>Checkpoint</h1>
-    <div class="sub">
-      Git for AI agent actions — safety, observability and recovery
-    </div>
-  </div>
+<!-- =========================================================
+     AUTH SCREEN
+========================================================= -->
 
-  <div id="who" class="who hidden"></div>
+<div id="authPanel" class="auth-screen">
+
+    <div class="auth-glow"></div>
+
+    <div class="auth-card">
+
+        <div class="brand">
+
+            <div class="logo">✓</div>
+
+            <div>
+                <div class="brand-name">
+                    CHECKPOINT
+                </div>
+
+                <span class="brand-sub">
+                    AI AGENT CONTROL PLANE
+                </span>
+            </div>
+
+        </div>
+
+        <h1>
+            Control what your agents can change.
+        </h1>
+
+        <p class="auth-description">
+            CHECKPOINT evaluates autonomous actions before
+            execution, creates recovery points, detects risky
+            mutations and keeps an auditable timeline.
+        </p>
+
+        <div class="form">
+
+            <div class="field">
+
+                <label>EMAIL</label>
+
+                <input
+                    id="authEmail"
+                    type="email"
+                    placeholder="you@example.com"
+                    autocomplete="username"
+                >
+
+            </div>
+
+            <div class="field">
+
+                <label>PASSWORD</label>
+
+                <input
+                    id="authPassword"
+                    type="password"
+                    placeholder="Minimum 8 characters"
+                    autocomplete="current-password"
+                >
+
+            </div>
+
+        </div>
+
+        <div class="auth-actions">
+
+            <button
+                class="btn primary"
+                onclick="login()"
+            >
+                Log in
+            </button>
+
+            <button
+                class="btn"
+                onclick="register()"
+            >
+                Create account
+            </button>
+
+        </div>
+
+        <div
+            id="authStatus"
+            class="status-message"
+        ></div>
+
+        <div class="security-note">
+            Session credentials are isolated to your browser session.
+        </div>
+
+    </div>
+
 </div>
 
 
 <!-- =========================================================
-     AUTH
+     APPLICATION
 ========================================================= -->
 
-<div id="authPanel" class="setup">
+<div id="app" class="app hidden">
 
-  <h2>Log in</h2>
+    <!-- SIDEBAR -->
 
-  <p>
-    Each account only ever sees its own sessions.
-    Sessions are isolated per user on the server.
-  </p>
+    <aside class="sidebar">
 
-  <div class="setup-grid">
+        <div class="sidebar-brand">
 
-    <input
-      id="authEmail"
-      type="email"
-      placeholder="you@example.com"
-      autocomplete="username"
-    />
+            <div class="brand">
 
-    <input
-      id="authPassword"
-      type="password"
-      placeholder="Password (min 8 characters)"
-      autocomplete="current-password"
-    />
+                <div class="logo">✓</div>
 
-  </div>
+                <div>
+                    <div class="brand-name">
+                        CHECKPOINT
+                    </div>
 
-  <div class="row" style="margin-top:8px;margin-bottom:0">
+                    <span class="brand-sub">
+                        CONTROL PLANE
+                    </span>
+                </div>
 
-    <button id="loginBtn" onclick="login()">
-      Log in
-    </button>
+            </div>
 
-    <button id="registerBtn" onclick="register()">
-      Create account
-    </button>
+        </div>
 
-  </div>
+        <nav class="sidebar-nav">
 
-  <div id="authStatus" class="small"></div>
+            <button
+                class="nav-item active"
+                onclick="jumpTo('overview')"
+            >
+                <span class="nav-icon">◈</span>
+                Overview
+            </button>
+
+            <button
+                class="nav-item"
+                onclick="jumpTo('demo')"
+            >
+                <span class="nav-icon">◆</span>
+                Demo Lab
+            </button>
+
+            <button
+                class="nav-item"
+                onclick="jumpTo('timeline')"
+            >
+                <span class="nav-icon">◷</span>
+                Live Timeline
+            </button>
+
+            <button
+                class="nav-item"
+                onclick="jumpTo('connection')"
+            >
+                <span class="nav-icon">◎</span>
+                Runtime
+            </button>
+
+        </nav>
+
+        <div class="sidebar-bottom">
+
+            <div class="runtime-status">
+
+                <span
+                    id="runtimeDot"
+                    class="status-dot"
+                ></span>
+
+                <span id="runtimeText">
+                    Runtime disconnected
+                </span>
+
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN -->
+
+    <main class="main">
+
+        <!-- TOP BAR -->
+
+        <header class="topbar">
+
+            <div>
+
+                <div class="top-title">
+                    Agent operations
+                </div>
+
+                <div class="top-subtitle">
+                    Security workspace
+                </div>
+
+            </div>
+
+            <div class="top-right">
+
+                <div class="connection-pill">
+
+                    <span
+                        id="topDot"
+                        class="status-dot"
+                    ></span>
+
+                    <span id="topStatus">
+                        No active session
+                    </span>
+
+                </div>
+
+                <div
+                    id="who"
+                    class="user-pill"
+                ></div>
+
+            </div>
+
+        </header>
+
+
+        <!-- CONTENT -->
+
+        <div class="content">
+
+
+            <!-- HERO -->
+
+            <section
+                id="overview"
+                class="section hero"
+            >
+
+                <div>
+
+                    <div class="eyebrow">
+                        Runtime visibility
+                    </div>
+
+                    <h1>
+                        See what your agent
+                        is allowed to change.
+                    </h1>
+
+                    <p>
+                        Every mutating action passes through
+                        CHECKPOINT before it touches your runtime.
+                        Risk is evaluated, state is checkpointed,
+                        changes are diffed and humans can intervene.
+                    </p>
+
+                </div>
+
+                <div class="hero-actions">
+
+                    <button
+                        class="btn"
+                        onclick="loadTimeline()"
+                    >
+                        ↻ Refresh
+                    </button>
+
+                    <button
+                        class="btn primary"
+                        onclick="focusConnection()"
+                    >
+                        Connect runtime
+                    </button>
+
+                </div>
+
+            </section>
+
+
+            <!-- METRICS -->
+
+            <section
+                id="summary"
+                class="metrics"
+            >
+
+                <div class="metric">
+
+                    <div class="metric-label">
+                        Actions
+                    </div>
+
+                    <div
+                        id="metricActions"
+                        class="metric-number"
+                    >
+                        0
+                    </div>
+
+                    <div class="metric-hint">
+                        Intercepted
+                    </div>
+
+                </div>
+
+
+                <div class="metric">
+
+                    <div class="metric-label">
+                        Checkpoints
+                    </div>
+
+                    <div
+                        id="metricCheckpoints"
+                        class="metric-number"
+                    >
+                        0
+                    </div>
+
+                    <div class="metric-hint">
+                        Recovery points
+                    </div>
+
+                </div>
+
+
+                <div class="metric">
+
+                    <div class="metric-label">
+                        Blocked
+                    </div>
+
+                    <div
+                        id="metricBlocked"
+                        class="metric-number"
+                    >
+                        0
+                    </div>
+
+                    <div class="metric-hint">
+                        Stopped pre-execution
+                    </div>
+
+                </div>
+
+
+                <div class="metric">
+
+                    <div class="metric-label">
+                        Rollbacks
+                    </div>
+
+                    <div
+                        id="metricRollbacks"
+                        class="metric-number"
+                    >
+                        0
+                    </div>
+
+                    <div class="metric-hint">
+                        Recovery events
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- MAIN GRID -->
+
+            <div class="main-grid">
+
+
+                <!-- CONNECTION -->
+
+                <section
+                    id="connection"
+                    class="card section"
+                >
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <div class="card-title">
+                                Runtime connection
+                            </div>
+
+                            <div class="card-description">
+                                Connect a Solari runtime to begin.
+                            </div>
+
+                        </div>
+
+                        <span class="tag safe">
+                            BYOK
+                        </span>
+
+                    </div>
+
+
+                    <div class="card-body">
+
+                        <div class="connection-grid">
+
+                            <div class="field">
+
+                                <label>
+                                    SOLARI API KEY
+                                </label>
+
+                                <input
+                                    id="solariKey"
+                                    type="password"
+                                    placeholder="slr_..."
+                                    autocomplete="off"
+                                >
+
+                            </div>
+
+
+                            <div class="field">
+
+                                <label>
+                                    EXISTING SESSION
+                                </label>
+
+                                <input
+                                    id="sessionId"
+                                    placeholder="sess_..."
+                                >
+
+                            </div>
+
+
+                            <div class="connection-actions">
+
+                                <button
+                                    class="btn primary"
+                                    onclick="startSession()"
+                                >
+                                    Start session
+                                </button>
+
+                                <button
+                                    class="btn"
+                                    onclick="loadTimeline()"
+                                >
+                                    Load timeline
+                                </button>
+
+                                <button
+                                    class="btn red"
+                                    onclick="endSession()"
+                                >
+                                    End session
+                                </button>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="notice">
+                            🔐 Your Solari key is cleared from the
+                            page after session creation and is not
+                            stored in browser storage.
+                        </div>
+
+
+                        <div
+                            id="setupStatus"
+                            class="status-message"
+                        ></div>
+
+                        <div
+                            id="setupError"
+                            class="status-message"
+                        ></div>
+
+                    </div>
+
+                </section>
+
+
+                <!-- SESSION -->
+
+                <section class="card">
+
+                    <div class="card-header">
+
+                        <div>
+
+                            <div class="card-title">
+                                Session state
+                            </div>
+
+                            <div class="card-description">
+                                Current runtime context
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="card-body">
+
+                        <div
+                            id="sessionInfo"
+                            class="session-box"
+                        >
+No active session.
+
+Connect a runtime to begin.
+                        </div>
+
+                    </div>
+
+                </section>
+
+            </div>
+
+
+            <!-- PIPELINE -->
+
+            <section
+                class="card section"
+                style="margin-top:13px"
+            >
+
+                <div class="card-header">
+
+                    <div>
+
+                        <div class="card-title">
+                            Enforcement pipeline
+                        </div>
+
+                        <div class="card-description">
+                            Every mutating action follows this path.
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="card-body">
+
+                    <div
+                        id="pipeline"
+                        class="pipeline"
+                    >
+
+                        <div class="pipeline-step">
+                            <strong>01</strong>
+                            Propose
+                        </div>
+
+                        <div class="pipeline-step">
+                            <strong>02</strong>
+                            Risk check
+                        </div>
+
+                        <div class="pipeline-step">
+                            <strong>03</strong>
+                            Checkpoint
+                        </div>
+
+                        <div class="pipeline-step">
+                            <strong>04</strong>
+                            Execute
+                        </div>
+
+                        <div class="pipeline-step">
+                            <strong>05</strong>
+                            Diff
+                        </div>
+
+                        <div class="pipeline-step">
+                            <strong>06</strong>
+                            Decide
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- DEMO LAB -->
+
+            <section
+                id="demo"
+                class="card section"
+                style="margin-top:13px"
+            >
+
+                <div class="card-header">
+
+                    <div>
+
+                        <div class="card-title">
+                            CHECKPOINT Demo Lab
+                        </div>
+
+                        <div class="card-description">
+                            Simulate safe and adversarial agent behaviour.
+                        </div>
+
+                    </div>
+
+                    <button
+                        class="btn"
+                        onclick="loadTimeline()"
+                    >
+                        ↻ Refresh
+                    </button>
+
+                </div>
+
+
+                <div class="card-body">
+
+                    <div class="demo-layout">
+
+
+                        <!-- WORKSPACE -->
+
+                        <div>
+
+                            <div class="eyebrow"
+                                 style="margin-bottom:8px">
+                                Protected workspace
+                            </div>
+
+                            <div class="workspace">
+
+<span class="folder">project/</span>
+├── <span class="secret">secrets.env</span>
+├── <span class="folder">reports/</span>
+│   └── report.txt
+└── <span class="bulk">bulk_data/</span>
+    ├── file_01.dat
+    ├── file_02.dat
+    ├── …
+    └── file_25.dat
+
+<span style="color:#526071">
+CHECKPOINT watches mutations
+inside this workspace.
+</span>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- SCENARIOS -->
+
+                        <div>
+
+                            <div class="eyebrow"
+                                 style="margin-bottom:8px">
+                                Scenarios
+                            </div>
+
+                            <div class="scenarios">
+
+
+                                <!-- SAFE -->
+
+                                <div class="scenario">
+
+                                    <div class="scenario-title">
+
+                                        <span class="tag safe">
+                                            Safe
+                                        </span>
+
+                                        Harmless write
+
+                                    </div>
+
+                                    <div class="scenario-description">
+
+                                        Create a harmless summary
+                                        file with low expected risk.
+
+                                    </div>
+
+                                    <button
+                                        class="btn green"
+                                        style="width:100%"
+                                        onclick="demoSafeAction()"
+                                    >
+                                        Run action
+                                    </button>
+
+                                </div>
+
+
+                                <!-- SECRET -->
+
+                                <div class="scenario">
+
+                                    <div class="scenario-title">
+
+                                        <span class="tag danger">
+                                            Block
+                                        </span>
+
+                                        Secret deletion
+
+                                    </div>
+
+                                    <div class="scenario-description">
+
+                                        Attempts to remove
+                                        secrets.env before execution.
+
+                                    </div>
+
+                                    <button
+                                        class="btn red"
+                                        style="width:100%"
+                                        onclick="demoSecretDelete()"
+                                    >
+                                        Simulate attack
+                                    </button>
+
+                                </div>
+
+
+                                <!-- INTENT -->
+
+                                <div class="scenario">
+
+                                    <div class="scenario-title">
+
+                                        <span class="tag danger">
+                                            Mismatch
+                                        </span>
+
+                                        Intent mismatch
+
+                                    </div>
+
+                                    <div class="scenario-description">
+
+                                        Agent claims it will organize
+                                        reports but executes deletion.
+
+                                    </div>
+
+                                    <button
+                                        class="btn red"
+                                        style="width:100%"
+                                        onclick="demoIntentMismatch()"
+                                    >
+                                        Simulate attack
+                                    </button>
+
+                                </div>
+
+
+                                <!-- BULK -->
+
+                                <div class="scenario">
+
+                                    <div class="scenario-title">
+
+                                        <span class="tag warning">
+                                            Detect
+                                        </span>
+
+                                        Bulk deletion
+
+                                    </div>
+
+                                    <div class="scenario-description">
+
+                                        Removes 25 files through an
+                                        indirect filesystem mutation.
+
+                                    </div>
+
+                                    <button
+                                        class="btn yellow"
+                                        style="width:100%"
+                                        onclick="demoBulkDelete()"
+                                    >
+                                        Run simulation
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div
+                        class="connection-actions"
+                        style="margin-top:13px"
+                    >
+
+                        <button
+                            class="btn"
+                            onclick="initializeDemoWorkspace()"
+                        >
+                            Initialize workspace
+                        </button>
+
+                        <button
+                            class="btn green"
+                            onclick="approveLatestPaused()"
+                        >
+                            ✓ Approve paused
+                        </button>
+
+                        <button
+                            class="btn red"
+                            onclick="rejectLatestPaused()"
+                        >
+                            ↩ Reject + recover
+                        </button>
+
+                    </div>
+
+
+                    <div
+                        id="demoStatus"
+                        class="demo-status"
+                    >
+                        Connect a runtime to begin the Demo Lab.
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- TIMELINE -->
+
+            <section
+                id="timeline"
+                class="card section"
+                style="margin-top:13px"
+            >
+
+                <div class="card-header">
+
+                    <div>
+
+                        <div class="card-title">
+                            Live action timeline
+                        </div>
+
+                        <div class="card-description">
+                            Every action, risk decision and recovery event.
+                        </div>
+
+                    </div>
+
+                    <span
+                        id="quota"
+                        class="card-description"
+                    ></span>
+
+                </div>
+
+                <div class="card-body">
+
+                    <div
+                        id="timelineList"
+                        class="timeline"
+                    >
+
+                        <div class="empty">
+                            No session loaded.
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+        </div>
+
+    </main>
 
 </div>
 
 
-<!-- =========================================================
-     MAIN APP
-========================================================= -->
-
-<div id="app" class="hidden">
-
-  <!-- -------------------------------------------------------
-       SESSION CONNECTION
-  -------------------------------------------------------- -->
-
-  <div class="setup">
-
-    <h2>Connect a session</h2>
-
-    <p>
-      Use your own Solari API key. Checkpoint forwards it only
-      when creating the session; it is not stored in the database
-      or returned by the API. The browser clears the key after
-      the request.
-    </p>
-
-    <div class="setup-grid">
-
-      <input
-        id="solariKey"
-        type="password"
-        placeholder="Your Solari API key (slr_...)"
-        autocomplete="off"
-      />
-
-      <input
-        id="sessionId"
-        placeholder="Existing session ID (optional)"
-      />
-
-    </div>
-
-    <div class="row" style="margin-top:8px;margin-bottom:0">
-
-      <button onclick="startSession()">
-        Start Solari session
-      </button>
-
-      <button onclick="load()">
-        Load timeline
-      </button>
-
-    </div>
-
-    <div id="setupStatus" class="small"></div>
-
-    <div id="setupError" class="error"></div>
-
-  </div>
-
-
-  <!-- -------------------------------------------------------
-       SUMMARY
-  -------------------------------------------------------- -->
-
-  <div id="summary" class="summary"></div>
-
-  <div id="quota" class="quota"></div>
-
-
-  <!-- =======================================================
-       DEMO LAB
-  ======================================================== -->
-
-  <div id="demoLab" class="setup demo-lab">
-
-    <div class="demo-lab-header">
-
-      <div>
-
-        <div class="demo-lab-title">
-          CHECKPOINT Demo Lab
-        </div>
-
-        <div class="demo-lab-subtitle">
-          Run controlled agent actions through the real
-          safety → checkpoint → execution → diff →
-          human decision → recovery pipeline.
-        </div>
-
-      </div>
-
-      <button
-        class="btn-blue"
-        onclick="refreshDemoTimeline()"
-      >
-        Refresh
-      </button>
-
-    </div>
-
-
-    <!-- Demo workspace -->
-
-    <div class="demo-workspace">
-
-      <div class="demo-workspace-title">
-        Demo workspace
-      </div>
-
-      <div class="workspace-tree">
-        project/<br>
-        ├── secrets.env<br>
-        ├── reports/<br>
-        │   └── report.txt<br>
-        └── bulk_data/<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;├── file_01.dat<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;├── file_02.dat<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;├── ...<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;└── file_25.dat
-      </div>
-
-    </div>
-
-
-    <!-- Demo scenarios -->
-
-    <div class="demo-grid">
-
-
-      <!-- SAFE -->
-
-      <div class="demo-card">
-
-        <div class="demo-title">
-          🟢 Safe action
-        </div>
-
-        <div class="demo-description">
-          Creates a harmless summary file.
-          Expected result:
-          <strong>COMPLETED</strong> with low risk.
-        </div>
-
-        <button
-          class="btn-approve"
-          onclick="demoSafeAction()"
-        >
-          Run safe action
-        </button>
-
-      </div>
-
-
-      <!-- SECRET -->
-
-      <div class="demo-card">
-
-        <div class="demo-title">
-          🔴 Secret deletion
-        </div>
-
-        <div class="demo-description">
-          Attempts to delete
-          <code>secrets.env</code>.
-          Expected result:
-          <strong>BLOCKED</strong> before execution.
-        </div>
-
-        <button
-          class="btn-reject"
-          onclick="demoSecretDelete()"
-        >
-          Delete secrets.env
-        </button>
-
-      </div>
-
-
-      <!-- INTENT MISMATCH -->
-
-      <div class="demo-card">
-
-        <div class="demo-title">
-          🔴 Intent mismatch
-        </div>
-
-        <div class="demo-description">
-          Runs
-          <code>rm -rf reports</code>
-          while the stated intent is to organize reports.
-          Expected result:
-          <strong>BLOCKED</strong>.
-        </div>
-
-        <button
-          class="btn-reject"
-          onclick="demoIntentMismatch()"
-        >
-          Run destructive mismatch
-        </button>
-
-      </div>
-
-
-      <!-- BULK -->
-
-      <div class="demo-card">
-
-        <div class="demo-title">
-          🟠 Evasive bulk deletion
-        </div>
-
-        <div class="demo-description">
-          Deletes 25 files through Python filesystem
-          operations without an obvious destructive shell
-          command. Expected result:
-          <strong>PAUSED</strong> after diff analysis.
-        </div>
-
-        <button
-          class="btn-warning"
-          onclick="demoBulkDelete()"
-        >
-          Run bulk-delete attack
-        </button>
-
-      </div>
-
-    </div>
-
-
-    <!-- Human decision -->
-
-    <div class="demo-controls">
-
-      <button
-        class="btn-approve"
-        onclick="approveLatestPaused()"
-      >
-        ✓ Approve latest paused action
-      </button>
-
-      <button
-        class="btn-reject"
-        onclick="rejectLatestPaused()"
-      >
-        ↩ Reject + recover latest paused action
-      </button>
-
-      <button
-        onclick="refreshDemoTimeline()"
-      >
-        ↻ Refresh timeline
-      </button>
-
-    </div>
-
-
-    <div
-      id="demoStatus"
-      class="demo-status"
-    >
-      Connect a session above to begin the demo.
-    </div>
-
-  </div>
-
-
-  <!-- =======================================================
-       TIMELINE
-  ======================================================== -->
-
-  <div id="timeline"></div>
-
-</div>
+<!-- TOAST -->
+
+<div
+    id="toastContainer"
+    class="toast-container"
+></div>
 
 
 <script>
 
-/* ============================================================
-   GLOBAL CONFIG
-============================================================ */
+/* =========================================================
+   CHECKPOINT FRONTEND LOGIC
+   ========================================================= */
 
 const API =
-  window.CHECKPOINT_API ||
-  window.location.origin;
+    window.CHECKPOINT_API ||
+    window.location.origin;
 
 const TOKEN_KEY =
-  "checkpoint_token";
+    "checkpoint_token";
 
 const USER_KEY =
-  "checkpoint_user_email";
+    "checkpoint_user_email";
+
+const SESSION_KEY =
+    "checkpoint_session_id";
 
 
-/* ============================================================
-   AUTH STORAGE
-============================================================ */
+/* ---------------------------------------------------------
+   HELPERS
+--------------------------------------------------------- */
 
-function getToken() {
+const $ = id =>
+    document.getElementById(id);
 
-  return sessionStorage.getItem(TOKEN_KEY) || "";
 
+function token() {
+    return sessionStorage.getItem(TOKEN_KEY) || "";
 }
 
-
-function setSession(token, email) {
-
-  sessionStorage.setItem(
-    TOKEN_KEY,
-    token
-  );
-
-  sessionStorage.setItem(
-    USER_KEY,
-    email
-  );
-
-}
-
-
-function clearSession() {
-
-  sessionStorage.removeItem(
-    TOKEN_KEY
-  );
-
-  sessionStorage.removeItem(
-    USER_KEY
-  );
-
-}
-
-
-/* ============================================================
-   HTML ESCAPE
-============================================================ */
 
 function escapeHtml(value) {
 
-  if (value === null || value === undefined) {
-    return "";
-  }
-
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-
+    return String(value ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
 }
 
 
-/* ============================================================
-   API HELPER
-============================================================ */
+function headers(body=false) {
 
-function authHeaders(extra = {}) {
+    const h = {};
 
-  const headers = {
-    ...extra
-  };
+    if (body) {
+        h["Content-Type"] =
+            "application/json";
+    }
 
-  const token =
-    getToken();
+    if (token()) {
+        h.Authorization =
+            `Bearer ${token()}`;
+    }
 
-  if (token) {
-
-    headers["Authorization"] =
-      `Bearer ${token}`;
-
-  }
-
-  return headers;
-
+    return h;
 }
 
 
-async function api(
-  path,
-  options = {}
+async function api(path, options={}) {
+
+    const response =
+        await fetch(
+            API + path,
+            {
+                ...options,
+
+                headers: {
+                    ...headers(
+                        Boolean(options.body)
+                    ),
+                    ...(options.headers || {})
+                }
+            }
+        );
+
+    if (response.status === 401) {
+        logout();
+
+        throw new Error(
+            "Authentication expired."
+        );
+    }
+
+    return response;
+}
+
+
+/* ---------------------------------------------------------
+   TOAST
+--------------------------------------------------------- */
+
+function toast(
+    message,
+    type="success"
 ) {
 
-  const headers =
-    authHeaders(
-      options.headers ||
-      (
-        options.body
-          ? {
-              "Content-Type":
-                "application/json"
-            }
-          : {}
-      )
-    );
+    const container =
+        $("toastContainer");
 
-  const response =
-    await fetch(
-      `${API}${path}`,
-      {
-        ...options,
-        headers
-      }
-    );
+    const element =
+        document.createElement("div");
 
-  if (response.status === 401) {
+    element.className =
+        `toast ${type}`;
 
-    clearSession();
+    element.textContent =
+        message;
 
-    showAuthGate(
-      "Your session expired. Please log in again."
-    );
+    container.appendChild(element);
 
-    throw new Error(
-      "Not authenticated"
-    );
+    setTimeout(() => {
 
-  }
+        element.style.opacity = "0";
+        element.style.transform =
+            "translateY(8px)";
 
-  return response;
+        setTimeout(
+            () => element.remove(),
+            250
+        );
 
+    },3200);
 }
 
 
-/* ============================================================
-   AUTH UI
-============================================================ */
-
-function showAuthGate(message = "") {
-
-  document
-    .getElementById("authPanel")
-    .classList
-    .remove("hidden");
-
-  document
-    .getElementById("app")
-    .classList
-    .add("hidden");
-
-  document
-    .getElementById("who")
-    .classList
-    .add("hidden");
-
-  document
-    .getElementById("authStatus")
-    .textContent =
-      message;
-
-}
-
+/* ---------------------------------------------------------
+   AUTH
+--------------------------------------------------------- */
 
 function showApp() {
 
-  document
-    .getElementById("authPanel")
-    .classList
-    .add("hidden");
+    $("authPanel")
+        .classList
+        .add("hidden");
 
-  document
-    .getElementById("app")
-    .classList
-    .remove("hidden");
+    $("app")
+        .classList
+        .remove("hidden");
 
-  const email =
-    sessionStorage.getItem(
-      USER_KEY
-    ) || "";
+    const email =
+        sessionStorage.getItem(
+            USER_KEY
+        ) || "";
 
-  const who =
-    document.getElementById(
-      "who"
-    );
-
-  who.classList.remove(
-    "hidden"
-  );
-
-  who.innerHTML =
-    `${escapeHtml(email)}
-     <button onclick="logout()">
-       Log out
-     </button>`;
+    $("who").innerHTML =
+        `${escapeHtml(email)}
+        <button onclick="logout()">
+            Log out
+        </button>`;
 
 }
 
 
-/* ============================================================
-   LOGIN / REGISTER
-============================================================ */
+function showAuth(message="") {
 
-async function register() {
+    $("authPanel")
+        .classList
+        .remove("hidden");
 
-  await authenticate(
-    "/auth/register"
-  );
+    $("app")
+        .classList
+        .add("hidden");
 
+    $("authStatus")
+        .textContent = message;
 }
 
 
-async function login() {
+async function authenticate(path) {
 
-  await authenticate(
-    "/auth/login"
-  );
+    const email =
+        $("authEmail")
+        .value
+        .trim();
 
-}
+    const password =
+        $("authPassword")
+        .value;
 
+    if (!email || !password) {
 
-async function authenticate(
-  path
-) {
+        $("authStatus")
+            .textContent =
+            "Enter your email and password.";
 
-  const email =
-    document
-      .getElementById(
-        "authEmail"
-      )
-      .value
-      .trim();
-
-  const password =
-    document
-      .getElementById(
-        "authPassword"
-      )
-      .value;
-
-  const status =
-    document.getElementById(
-      "authStatus"
-    );
-
-  if (!email || !password) {
-
-    status.textContent =
-      "Enter an email and password.";
-
-    return;
-
-  }
-
-  status.textContent =
-    path.includes("register")
-      ? "Creating account…"
-      : "Logging in…";
-
-  try {
-
-    const response =
-      await fetch(
-        `${API}${path}`,
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body: JSON.stringify({
-            email,
-            password
-          })
-        }
-      );
-
-    const data =
-      await response.json();
-
-    if (!response.ok) {
-
-      throw new Error(
-        data.detail ||
-        "Authentication failed"
-      );
-
+        return;
     }
 
-    setSession(
-      data.access_token,
-      data.email
+    $("authStatus")
+        .textContent =
+        "Authenticating…";
+
+    try {
+
+        const response =
+            await fetch(
+                API + path,
+                {
+                    method: "POST",
+
+                    headers:
+                        headers(true),
+
+                    body:
+                        JSON.stringify({
+                            email,
+                            password
+                        })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.detail ||
+                "Authentication failed."
+            );
+        }
+
+        sessionStorage.setItem(
+            TOKEN_KEY,
+            data.access_token
+        );
+
+        sessionStorage.setItem(
+            USER_KEY,
+            data.email
+        );
+
+        $("authPassword").value = "";
+
+        showApp();
+
+        toast(
+            "Welcome to CHECKPOINT."
+        );
+
+        const savedSession =
+            sessionStorage.getItem(
+                SESSION_KEY
+            );
+
+        if (savedSession) {
+
+            $("sessionId").value =
+                savedSession;
+
+            loadTimeline();
+
+        }
+
+    } catch(error) {
+
+        $("authStatus")
+            .textContent =
+            error.message;
+
+        toast(
+            error.message,
+            "error"
+        );
+    }
+}
+
+
+function login() {
+
+    authenticate(
+        "/auth/login"
     );
+}
 
-    document
-      .getElementById(
-        "authPassword"
-      )
-      .value = "";
 
-    showApp();
+function register() {
 
-  } catch (error) {
-
-    status.textContent =
-      `Error: ${error.message}`;
-
-  }
-
+    authenticate(
+        "/auth/register"
+    );
 }
 
 
 function logout() {
 
-  clearSession();
+    sessionStorage.removeItem(
+        TOKEN_KEY
+    );
 
-  showAuthGate("");
+    sessionStorage.removeItem(
+        USER_KEY
+    );
 
+    sessionStorage.removeItem(
+        SESSION_KEY
+    );
+
+    showAuth();
+
+    toast(
+        "Logged out."
+    );
 }
 
 
-/* ============================================================
-   SESSION CREATION
-============================================================ */
+/* ---------------------------------------------------------
+   RUNTIME STATUS
+--------------------------------------------------------- */
+
+function setRuntime(
+    connected
+) {
+
+    const dots = [
+        $("runtimeDot"),
+        $("topDot")
+    ];
+
+    dots.forEach(dot => {
+
+        dot.className =
+            connected
+                ? "status-dot live"
+                : "status-dot";
+
+    });
+
+    $("runtimeText")
+        .textContent =
+        connected
+            ? "Runtime connected"
+            : "Runtime disconnected";
+
+    $("topStatus")
+        .textContent =
+        connected
+            ? "Session active"
+            : "No active session";
+}
+
+
+/* ---------------------------------------------------------
+   MESSAGES
+--------------------------------------------------------- */
+
+function message(
+    id,
+    text,
+    type=""
+) {
+
+    const element =
+        $(id);
+
+    element.textContent =
+        text;
+
+    element.className =
+        `status-message ${type}`;
+}
+
+
+/* ---------------------------------------------------------
+   SESSION
+--------------------------------------------------------- */
+
+function currentSession() {
+
+    return $("sessionId")
+        .value
+        .trim();
+}
+
 
 async function startSession() {
 
-  const key =
-    document
-      .getElementById(
-        "solariKey"
-      )
-      .value
-      .trim();
+    const key =
+        $("solariKey")
+        .value
+        .trim();
 
-  const status =
-    document.getElementById(
-      "setupStatus"
+    if (!key) {
+
+        message(
+            "setupError",
+            "Enter your Solari API key."
+        );
+
+        return;
+    }
+
+    message(
+        "setupStatus",
+        "Creating isolated runtime…"
     );
 
-  const error =
-    document.getElementById(
-      "setupError"
+    message(
+        "setupError",
+        ""
     );
 
-  error.textContent =
-    "";
+    animatePipeline(1);
 
-  if (!key) {
+    try {
 
-    status.textContent =
-      "Enter your Solari API key.";
+        const response =
+            await api(
+                "/sessions",
+                {
+                    method: "POST",
 
-    return;
+                    body:
+                        JSON.stringify({
+                            agent_id:
+                                "checkpoint-web-user",
 
-  }
+                            task_description:
+                                "CHECKPOINT security demo session",
 
-  status.textContent =
-    "Creating isolated Solari sandbox…";
+                            solari_api_key:
+                                key
+                        })
+                }
+            );
 
-  try {
+        const data =
+            await response.json();
 
-    const response =
-      await api(
-        "/sessions",
-        {
-          method: "POST",
+        $("solariKey").value = "";
 
-          body: JSON.stringify({
+        if (!response.ok) {
 
-            agent_id:
-              "checkpoint-web-user",
-
-            task_description:
-              "User-controlled Checkpoint demo session",
-
-            solari_api_key:
-              key
-
-          })
+            throw new Error(
+                data.detail ||
+                "Unable to create session."
+            );
         }
-      );
 
-    const data =
-      await response.json();
+        $("sessionId").value =
+            data.id;
 
-    if (!response.ok) {
+        sessionStorage.setItem(
+            SESSION_KEY,
+            data.id
+        );
 
-      error.textContent =
-        data.detail ||
-        "Unable to create session.";
+        setRuntime(true);
 
-      status.textContent =
-        "";
+        message(
+            "setupStatus",
+            `Session ${data.id} connected.`,
+            "success"
+        );
 
-      return;
+        toast(
+            "Runtime connected."
+        );
 
+        animatePipeline(2);
+
+        await loadTimeline();
+
+    } catch(error) {
+
+        message(
+            "setupError",
+            error.message
+        );
+
+        toast(
+            error.message,
+            "error"
+        );
+
+        resetPipeline();
     }
-
-    document
-      .getElementById(
-        "sessionId"
-      )
-      .value =
-        data.id;
-
-    /*
-     * Never retain the Solari key
-     * in browser storage.
-     */
-
-    document
-      .getElementById(
-        "solariKey"
-      )
-      .value =
-        "";
-
-    status.textContent =
-      `Session created: ${data.id}. ` +
-      `Your key is no longer held by this page.`;
-
-    demoSetStatus(
-      "Session connected. Initialize the demo workspace first.",
-      false
-    );
-
-    await load();
-
-  } catch (error) {
-
-    if (
-      error.message !==
-      "Not authenticated"
-    ) {
-
-      status.textContent =
-        `Error: ${error.message}`;
-
-    }
-
-  }
-
 }
 
 
-/* ============================================================
-   LOAD TIMELINE
-============================================================ */
+async function endSession() {
 
-async function load() {
+    const id =
+        currentSession();
 
-  const id =
-    document
-      .getElementById(
-        "sessionId"
-      )
-      .value
-      .trim();
+    if (!id) {
 
-  if (!id) {
-    return;
-  }
+        toast(
+            "No active session.",
+            "error"
+        );
 
-  try {
-
-    const response =
-      await api(
-        `/sessions/${encodeURIComponent(id)}/timeline`
-      );
-
-    const data =
-      await response.json();
-
-    if (!response.ok) {
-
-      document
-        .getElementById(
-          "timeline"
-        )
-        .innerHTML =
-          `<div class="empty">
-             ${escapeHtml(
-               data.detail ||
-               "Session not found."
-             )}
-           </div>`;
-
-      return;
-
+        return;
     }
 
-    renderSummary(
-      data.summary
-    );
+    try {
 
-    renderQuota(
-      data.limits
-    );
+        const response =
+            await api(
+                `/sessions/${encodeURIComponent(id)}/end`,
+                {
+                    method: "POST"
+                }
+            );
 
-    renderTimeline(
-      data.actions || []
-    );
+        if (!response.ok) {
 
-  } catch (error) {
+            const data =
+                await response.json();
 
-    if (
-      error.message !==
-      "Not authenticated"
-    ) {
+            throw new Error(
+                data.detail ||
+                "Unable to end session."
+            );
+        }
 
-      document
-        .getElementById(
-          "timeline"
-        )
-        .innerHTML =
-          `<div class="empty">
-             Unable to load timeline.
-           </div>`;
+        setRuntime(false);
 
+        toast(
+            "Session ended."
+        );
+
+    } catch(error) {
+
+        toast(
+            error.message,
+            "error"
+        );
     }
-
-  }
-
 }
 
 
-/* ============================================================
+/* ---------------------------------------------------------
+   TIMELINE
+--------------------------------------------------------- */
+
+async function loadTimeline() {
+
+    const id =
+        currentSession();
+
+    if (!id) {
+
+        renderEmpty(
+            "Connect a runtime first."
+        );
+
+        return;
+    }
+
+    try {
+
+        const response =
+            await api(
+                `/sessions/${encodeURIComponent(id)}/timeline`
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.detail ||
+                "Unable to load timeline."
+            );
+        }
+
+        setRuntime(
+            data.status === "running"
+        );
+
+        renderSummary(
+            data.summary || {}
+        );
+
+        renderSession(
+            data
+        );
+
+        renderTimeline(
+            data.actions || []
+        );
+
+        if (data.limits) {
+
+            $("quota").textContent =
+                `${data.limits.actions_used || 0} / ` +
+                `${data.limits.max_actions_per_session || 0} actions`;
+
+        }
+
+    } catch(error) {
+
+        renderEmpty(
+            error.message
+        );
+
+        toast(
+            error.message,
+            "error"
+        );
+    }
+}
+
+
+/* ---------------------------------------------------------
    SUMMARY
-============================================================ */
+--------------------------------------------------------- */
 
-function statNode(
-  number,
-  label
+function animateNumber(
+    element,
+    target
 ) {
 
-  return `
-    <div class="stat">
-      <div class="n">
-        ${escapeHtml(number)}
-      </div>
+    const start =
+        Number(element.textContent) || 0;
 
-      <div class="l">
-        ${escapeHtml(label)}
-      </div>
-    </div>
-  `;
+    const duration =
+        500;
 
+    const startTime =
+        performance.now();
+
+    function tick(now) {
+
+        const progress =
+            Math.min(
+                (now - startTime) /
+                duration,
+                1
+            );
+
+        const eased =
+            1 -
+            Math.pow(
+                1 - progress,
+                3
+            );
+
+        element.textContent =
+            Math.round(
+                start +
+                (target - start) *
+                eased
+            );
+
+        if (progress < 1) {
+
+            requestAnimationFrame(
+                tick
+            );
+
+        }
+    }
+
+    requestAnimationFrame(
+        tick
+    );
 }
 
 
-function renderSummary(
-  summary
-) {
+function renderSummary(summary) {
 
-  const s =
-    summary || {};
-
-  document
-    .getElementById(
-      "summary"
-    )
-    .innerHTML = [
-
-      statNode(
-        s.total_actions || 0,
-        "Actions"
-      ),
-
-      statNode(
-        s.total_checkpoints || 0,
-        "Checkpoints"
-      ),
-
-      statNode(
-        s.blocked_actions || 0,
-        "Blocked"
-      ),
-
-      statNode(
-        s.rollbacks || 0,
-        "Rollbacks"
-      )
-
-    ].join("");
-
-}
-
-
-function renderQuota(
-  limits
-) {
-
-  const element =
-    document.getElementById(
-      "quota"
+    animateNumber(
+        $("metricActions"),
+        summary.total_actions || 0
     );
 
-  if (!limits) {
+    animateNumber(
+        $("metricCheckpoints"),
+        summary.total_checkpoints || 0
+    );
+
+    animateNumber(
+        $("metricBlocked"),
+        summary.blocked_actions || 0
+    );
+
+    animateNumber(
+        $("metricRollbacks"),
+        summary.rollbacks || 0
+    );
+}
+
+
+/* ---------------------------------------------------------
+   SESSION PANEL
+--------------------------------------------------------- */
+
+function renderSession(data) {
+
+    $("sessionInfo")
+        .textContent =
+`SESSION
+${data.session_id || "—"}
+
+STATUS
+${data.status || "—"}
+
+ACTIONS
+${data.summary?.total_actions || 0}
+
+CHECKPOINTS
+${data.summary?.total_checkpoints || 0}
+
+BLOCKED
+${data.summary?.blocked_actions || 0}
+
+ROLLBACKS
+${data.summary?.rollbacks || 0}`;
+}
+
+
+/* ---------------------------------------------------------
+   EMPTY
+--------------------------------------------------------- */
+
+function renderEmpty(text) {
+
+    $("timelineList")
+        .innerHTML =
+        `<div class="empty">
+            ${escapeHtml(text)}
+        </div>`;
+}
+
+
+/* ---------------------------------------------------------
+   RISK
+--------------------------------------------------------- */
+
+function riskClass(score) {
+
+    score =
+        Number(score) || 0;
+
+    if (score >= 70)
+        return "risk-high";
+
+    if (score >= 40)
+        return "risk-medium";
+
+    return "risk-low";
+}
+
+
+function badgeClass(status) {
+
+    const s =
+        String(status || "")
+        .toLowerCase();
+
+    if (
+        s === "completed" ||
+        s === "approved"
+    )
+        return "green";
+
+    if (
+        s === "blocked" ||
+        s === "failed" ||
+        s === "recovery_failed"
+    )
+        return "red";
+
+    if (s === "paused")
+        return "yellow";
+
+    return "gray";
+}
+
+
+/* ---------------------------------------------------------
+   TIMELINE RENDER
+--------------------------------------------------------- */
+
+function renderTimeline(entries) {
+
+    if (!entries.length) {
+
+        renderEmpty(
+            "No actions yet. Run a Demo Lab scenario."
+        );
+
+        return;
+    }
+
+    $("timelineList")
+        .innerHTML =
+        entries
+            .map(
+                (entry,index) => {
+
+                    const action =
+                        entry.action || {};
+
+                    const status =
+                        String(
+                            action.status ||
+                            "unknown"
+                        );
+
+                    const score =
+                        Number(
+                            action.risk_score ||
+                            0
+                        );
+
+                    const findings =
+                        entry.findings ||
+                        [];
+
+                    const diff =
+                        action.diff ||
+                        {};
+
+                    const removed =
+                        diff.files_removed ||
+                        [];
+
+                    const added =
+                        diff.files_added ||
+                        [];
+
+                    const modified =
+                        diff.files_modified ||
+                        [];
+
+                    const files = [
+
+                        ...added.map(
+                            file =>
+                            `<li class="diff-added">
+                                + ${escapeHtml(file)}
+                            </li>`
+                        ),
+
+                        ...modified.map(
+                            file =>
+                            `<li class="diff-modified">
+                                ~ ${escapeHtml(file)}
+                            </li>`
+                        ),
+
+                        ...removed.map(
+                            file =>
+                            `<li class="diff-removed">
+                                − ${escapeHtml(file)}
+                            </li>`
+                        )
+
+                    ].join("");
+
+                    const findingHtml =
+                        findings.length
+                            ? `
+                            <div class="findings">
+                                ${findings
+                                    .map(
+                                        finding =>
+                                        `⚠ ${escapeHtml(
+                                            finding.rule ||
+                                            "Risk finding"
+                                        )}
+                                        —
+                                        ${escapeHtml(
+                                            finding.message ||
+                                            ""
+                                        )}`
+                                    )
+                                    .join("<br>")}
+                            </div>
+                            `
+                            : "";
+
+                    const diffHtml =
+                        files
+                            ? `
+                            <div style="margin-top:10px">
+                                <span
+                                    style="
+                                    color:#647082;
+                                    font-size:9px;
+                                    "
+                                >
+                                    FILESYSTEM DIFF
+                                </span>
+
+                                <ul class="diff-list">
+                                    ${files}
+                                </ul>
+                            </div>
+                            `
+                            : "";
+
+                    return `
+                    <article
+                        class="action ${status.toLowerCase()}"
+                        style="
+                        animation-delay:${index * 35}ms
+                        "
+                    >
+
+                        <div
+                            class="action-top"
+                        >
+
+                            <div>
+
+                                <div
+                                    class="action-name"
+                                >
+                                    ${escapeHtml(
+                                        action.intent ||
+                                        "Agent action"
+                                    )}
+                                </div>
+
+                                <div
+                                    class="action-meta"
+                                >
+                                    ${escapeHtml(
+                                        action.type ||
+                                        "unknown"
+                                    )}
+
+                                    ${action.target
+                                        ? " · " +
+                                        escapeHtml(
+                                            action.target
+                                        )
+                                        : ""}
+                                </div>
+
+                            </div>
+
+
+                            <div>
+
+                                <span
+                                    class="badge ${badgeClass(status)}"
+                                >
+                                    ${escapeHtml(
+                                        status.toUpperCase()
+                                    )}
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="risk-line">
+
+                            <div class="risk-bar">
+
+                                <div
+                                    class="risk-fill ${riskClass(score)}"
+                                    style="
+                                    width:${score}%
+                                    "
+                                ></div>
+
+                            </div>
+
+                            <div class="risk-value">
+                                ${score}
+                            </div>
+
+                        </div>
+
+
+                        ${findingHtml}
+
+
+                        <div class="action-footer">
+
+                            <button
+                                class="expand-btn"
+                                onclick="toggleAction(this)"
+                            >
+                                View details ↓
+                            </button>
+
+
+                            ${
+                                status === "paused"
+                                ?
+                                `
+                                <div
+                                    class="approval-actions"
+                                >
+
+                                    <button
+                                        class="btn green"
+                                        onclick="
+                                        approveAction(
+                                            '${escapeHtml(action.id)}'
+                                        )"
+                                    >
+                                        Approve
+                                    </button>
+
+                                    <button
+                                        class="btn red"
+                                        onclick="
+                                        rejectAction(
+                                            '${escapeHtml(action.id)}'
+                                        )"
+                                    >
+                                        Reject + Recover
+                                    </button>
+
+                                </div>
+                                `
+                                :
+                                ""
+                            }
+
+                        </div>
+
+
+                        <div
+                            class="action-details"
+                        >
+
+                            <div
+                                style="
+                                display:grid;
+                                grid-template-columns:
+                                100px 1fr;
+                                gap:5px;
+                                font-size:9px;
+                                color:#7b8796;
+                                "
+                            >
+
+                                <span>Action ID</span>
+
+                                <span>
+                                    ${escapeHtml(
+                                        action.id
+                                    )}
+                                </span>
+
+                                <span>Checkpoint</span>
+
+                                <span>
+                                    ${escapeHtml(
+                                        action.checkpoint_id ||
+                                        "none"
+                                    )}
+                                </span>
+
+                                ${
+                                    action.parameters?.command
+                                    ?
+                                    `
+                                    <span>Command</span>
+
+                                    <code>
+                                        ${escapeHtml(
+                                            action.parameters.command
+                                        )}
+                                    </code>
+                                    `
+                                    :
+                                    ""
+                                }
+
+                            </div>
+
+
+                            ${diffHtml}
+
+                        </div>
+
+                    </article>
+                    `;
+                }
+            )
+            .join("");
+}
+
+
+/* ---------------------------------------------------------
+   ACTION DETAILS
+--------------------------------------------------------- */
+
+function toggleAction(button) {
+
+    const action =
+        button.closest(".action");
+
+    action.classList.toggle(
+        "expanded"
+    );
+
+    button.textContent =
+        action.classList.contains(
+            "expanded"
+        )
+            ? "Hide details ↑"
+            : "View details ↓";
+}
+
+
+/* ---------------------------------------------------------
+   ACTION EXECUTION
+--------------------------------------------------------- */
+
+function requireSession() {
+
+    const id =
+        currentSession();
+
+    if (!id) {
+
+        toast(
+            "Connect a runtime first.",
+            "error"
+        );
+
+        focusConnection();
+
+        return null;
+    }
+
+    return id;
+}
+
+
+async function submitAction(
+    type,
+    intent,
+    target,
+    parameters={}
+) {
+
+    const id =
+        requireSession();
+
+    if (!id)
+        return;
+
+    setDemoStatus(
+        "CHECKPOINT is evaluating the action…"
+    );
+
+    animatePipeline(2);
+
+    try {
+
+        const response =
+            await api(
+                `/sessions/${encodeURIComponent(id)}/actions`,
+                {
+                    method: "POST",
+
+                    body:
+                        JSON.stringify({
+                            session_id: id,
+                            type,
+                            intent,
+                            target,
+                            parameters
+                        })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.detail ||
+                `Action failed (${response.status})`
+            );
+        }
+
+        const status =
+            String(
+                data.status ||
+                ""
+            ).toUpperCase();
+
+        if (status === "COMPLETED") {
+
+            setDemoStatus(
+                `✓ ACTION COMPLETED
+
+Risk: ${data.risk_score || 0}
+
+The action passed CHECKPOINT
+and completed successfully.`,
+                "success"
+            );
+
+            toast(
+                "Action completed."
+            );
+
+        } else if (
+            status === "BLOCKED"
+        ) {
+
+            setDemoStatus(
+                `⛔ ACTION BLOCKED
+
+Risk: ${data.risk_score || 0}
+
+CHECKPOINT stopped the action
+before execution.`,
+                "danger"
+            );
+
+            toast(
+                "Dangerous action blocked."
+            );
+
+        } else if (
+            status === "PAUSED"
+        ) {
+
+            setDemoStatus(
+                `⚠ ACTION PAUSED
+
+Risk: ${data.risk_score || 0}
+
+Human approval is required.`,
+                "warning"
+            );
+
+            toast(
+                "Action paused for approval."
+            );
+
+        } else {
+
+            setDemoStatus(
+                `${status}
+
+Action: ${data.id}
+
+Risk: ${data.risk_score || 0}`
+            );
+        }
+
+        animatePipeline(
+            status === "BLOCKED"
+                ? 2
+                : 5
+        );
+
+        await loadTimeline();
+
+    } catch(error) {
+
+        setDemoStatus(
+            error.message,
+            "danger"
+        );
+
+        toast(
+            error.message,
+            "error"
+        );
+
+        resetPipeline();
+    }
+}
+
+
+function setDemoStatus(
+    text,
+    type=""
+) {
+
+    const element =
+        $("demoStatus");
 
     element.textContent =
-      "";
+        text;
 
-    return;
-
-  }
-
-  element.textContent =
-    `${limits.actions_used || 0} / ` +
-    `${limits.max_actions_per_session || 0} ` +
-    `actions used in this session`;
-
+    element.className =
+        `demo-status ${type}`;
 }
 
 
-/* ============================================================
-   TIMELINE RENDERING
-============================================================ */
+/* ---------------------------------------------------------
+   DEMO ACTIONS
+--------------------------------------------------------- */
 
-function statusClass(
-  status
-) {
+function initializeDemoWorkspace() {
 
-  return String(
-    status || "unknown"
-  )
-    .toLowerCase()
-    .replaceAll(" ", "_");
+    return submitAction(
+        "shell.execute",
 
+        "Prepare the demo workspace",
+
+        null,
+
+        {
+            command:
+                "mkdir -p reports bulk_data && " +
+                "printf '%s\\n' " +
+                "'DEMO_SECRET=do-not-expose' " +
+                "> secrets.env && " +
+                "printf '%s\\n' 'Demo report' " +
+                "> reports/report.txt && " +
+                "for i in $(seq -w 1 25); " +
+                "do printf 'bulk demo %s\\n' \"$i\" " +
+                "> \"bulk_data/file_$i.dat\"; done"
+        }
+    );
 }
 
 
-function renderTimeline(
-  entries
-) {
+function demoSafeAction() {
 
-  const element =
-    document.getElementById(
-      "timeline"
+    return submitAction(
+        "file.write",
+
+        "Create a harmless action summary",
+
+        "demo_summary.md",
+
+        {
+            content:
+                "# CHECKPOINT Demo\n\n" +
+                "Safe agent action completed.\n"
+        }
     );
-
-  if (!entries.length) {
-
-    element.innerHTML =
-      `<div class="empty">
-         No actions yet.
-       </div>`;
-
-    return;
-
-  }
-
-  element.innerHTML =
-    entries
-      .map(
-        entry =>
-          renderTimelineEntry(
-            entry
-          )
-      )
-      .join("");
-
 }
 
 
-function renderTimelineEntry(
-  entry
-) {
+function demoSecretDelete() {
 
-  const action =
-    entry.action || {};
+    return submitAction(
+        "file.delete",
 
-  const findings =
-    entry.findings || [];
+        "Remove a temporary project file",
 
-  const status =
-    String(
-      action.status || "unknown"
+        "secrets.env",
+
+        {}
     );
-
-  const statusSlug =
-    statusClass(status);
-
-  const findingsHtml =
-    findings.length
-
-      ? `
-        <div class="findings">
-
-          ${findings
-            .map(
-              finding => `
-                <div class="finding-row">
-                  ⚠
-                  ${escapeHtml(
-                    finding.rule
-                  )}
-                  :
-                  ${escapeHtml(
-                    finding.message
-                  )}
-
-                  ${
-                    finding.confidence !==
-                    undefined
-                      ? ` (${Math.round(
-                          Number(
-                            finding.confidence
-                          ) * 100
-                        )}% confidence)`
-                      : ""
-                  }
-                </div>
-              `
-            )
-            .join("")}
-
-        </div>
-      `
-
-      : "";
-
-
-  let approvalHtml =
-    "";
-
-  if (
-    status === "paused"
-  ) {
-
-    approvalHtml = `
-      <div class="approval-row">
-
-        <button
-          class="btn-approve"
-          onclick="approveAction('${escapeHtml(action.id)}')"
-        >
-          ✓ Approve
-        </button>
-
-        <button
-          class="btn-reject"
-          onclick="rejectAction('${escapeHtml(action.id)}')"
-        >
-          ↩ Reject + Recover
-        </button>
-
-      </div>
-    `;
-
-  }
-
-
-  const diff =
-    action.diff;
-
-  let diffHtml =
-    "";
-
-  if (diff) {
-
-    const added =
-      diff.files_added || [];
-
-    const removed =
-      diff.files_removed || [];
-
-    const modified =
-      diff.files_modified || [];
-
-    if (
-      added.length ||
-      removed.length ||
-      modified.length
-    ) {
-
-      diffHtml = `
-        <div class="diff-title">
-          Filesystem diff
-        </div>
-
-        <ul class="diff-list">
-
-          ${added
-            .map(
-              file =>
-                `<li class="diff-added">
-                   + ${escapeHtml(file)}
-                 </li>`
-            )
-            .join("")}
-
-          ${modified
-            .map(
-              file =>
-                `<li class="diff-modified">
-                   ~ ${escapeHtml(file)}
-                 </li>`
-            )
-            .join("")}
-
-          ${removed
-            .map(
-              file =>
-                `<li class="diff-removed">
-                   - ${escapeHtml(file)}
-                 </li>`
-            )
-            .join("")}
-
-        </ul>
-      `;
-
-    }
-
-  }
-
-
-  const target =
-    action.target ||
-    "—";
-
-  const command =
-    action.parameters &&
-    action.parameters.command
-      ? action.parameters.command
-      : "";
-
-
-  return `
-    <div class="action status-${statusSlug}">
-
-      <div class="top">
-
-        <div class="intent">
-          ${escapeHtml(
-            action.intent ||
-            "Agent action"
-          )}
-        </div>
-
-        <div>
-
-          <span
-            class="badge badge-${statusSlug}"
-          >
-            ${escapeHtml(
-              status.toUpperCase()
-            )}
-          </span>
-
-          <span class="risk">
-            Risk:
-            ${escapeHtml(
-              action.risk_score || 0
-            )}
-          </span>
-
-        </div>
-
-      </div>
-
-
-      <div class="meta">
-
-        Type:
-        ${escapeHtml(
-          action.type || "unknown"
-        )}
-
-        &nbsp; • &nbsp;
-
-        Target:
-        ${escapeHtml(target)}
-
-      </div>
-
-
-      ${findingsHtml}
-
-
-      <div class="details">
-
-        <div class="details-grid">
-
-          <div class="details-label">
-            Action ID
-          </div>
-
-          <div>
-            ${escapeHtml(
-              action.id
-            )}
-          </div>
-
-
-          <div class="details-label">
-            Checkpoint
-          </div>
-
-          <div>
-            ${escapeHtml(
-              action.checkpoint_id ||
-              "none"
-            )}
-          </div>
-
-
-          ${
-            command
-              ? `
-                <div class="details-label">
-                  Command
-                </div>
-
-                <div>
-                  <code>
-                    ${escapeHtml(
-                      command
-                    )}
-                  </code>
-                </div>
-              `
-              : ""
-          }
-
-        </div>
-
-
-        ${diffHtml}
-
-      </div>
-
-
-      ${approvalHtml}
-
-    </div>
-  `;
-
 }
 
 
-/* ============================================================
-   DEMO STATUS
-============================================================ */
+function demoIntentMismatch() {
 
-function demoSetStatus(
-  message,
-  type = false
-) {
+    return submitAction(
+        "shell.execute",
 
-  const element =
-    document.getElementById(
-      "demoStatus"
+        "Organize the reports folder",
+
+        null,
+
+        {
+            command:
+                "rm -rf reports"
+        }
     );
-
-  element.textContent =
-    message;
-
-  element.className =
-    "demo-status";
-
-  if (type === "success") {
-
-    element.classList.add(
-      "success"
-    );
-
-  }
-
-  if (type === "warning") {
-
-    element.classList.add(
-      "warning"
-    );
-
-  }
-
-  if (type === "danger") {
-
-    element.classList.add(
-      "danger"
-    );
-
-  }
-
 }
 
 
-/* ============================================================
-   DEMO SESSION
-============================================================ */
+function demoBulkDelete() {
 
-function getDemoSessionId() {
+    return submitAction(
+        "shell.execute",
 
-  return document
-    .getElementById(
-      "sessionId"
-    )
-    .value
-    .trim();
+        "Inspect and process the bulk data directory",
 
-}
+        null,
 
-
-function requireDemoSession() {
-
-  const sessionId =
-    getDemoSessionId();
-
-  if (!sessionId) {
-
-    demoSetStatus(
-      "Create a Solari session first.",
-      "danger"
+        {
+            command:
+                `python -c "import os; [os.remove(os.path.join('bulk_data',f)) for f in os.listdir('bulk_data')]"`
+        }
     );
-
-    return null;
-
-  }
-
-  return sessionId;
-
 }
 
 
-/* ============================================================
-   DEMO ACTION SUBMISSION
-============================================================ */
+/* ---------------------------------------------------------
+   APPROVAL
+--------------------------------------------------------- */
 
-async function submitDemoAction(
-  type,
-  intent,
-  target,
-  parameters = {}
-) {
+async function latestPausedAction() {
 
-  const sessionId =
-    requireDemoSession();
+    const id =
+        requireSession();
 
-  if (!sessionId) {
-    return null;
-  }
-
-  demoSetStatus(
-    "CHECKPOINT is evaluating the action…"
-  );
-
-  try {
+    if (!id)
+        throw new Error(
+            "No active session."
+        );
 
     const response =
-      await api(
-        `/sessions/${encodeURIComponent(sessionId)}/actions`,
-        {
-          method: "POST",
-
-          body: JSON.stringify({
-
-            session_id:
-              sessionId,
-
-            type:
-              type,
-
-            intent:
-              intent,
-
-            target:
-              target,
-
-            parameters:
-              parameters
-
-          })
-        }
-      );
+        await api(
+            `/sessions/${encodeURIComponent(id)}/timeline`
+        );
 
     const data =
-      await response.json();
+        await response.json();
 
     if (!response.ok) {
 
-      demoSetStatus(
-        data.detail ||
-        `Action failed (${response.status})`,
-        "danger"
-      );
-
-      return null;
-
+        throw new Error(
+            data.detail ||
+            "Unable to load timeline."
+        );
     }
 
+    const paused =
+        (data.actions || [])
+            .filter(
+                item =>
+                    item.action?.status ===
+                    "paused"
+            );
 
-    const status =
-      String(
-        data.status || ""
-      ).toUpperCase();
+    if (!paused.length) {
 
-    const risk =
-      data.risk_score || 0;
-
-
-    if (
-      status === "BLOCKED"
-    ) {
-
-      demoSetStatus(
-        `🔴 BLOCKED\n\n` +
-        `Action: ${data.id}\n` +
-        `Risk: ${risk}\n\n` +
-        `The action was stopped before execution.`,
-        "danger"
-      );
-
-    } else if (
-      status === "PAUSED"
-    ) {
-
-      demoSetStatus(
-        `🟠 PAUSED\n\n` +
-        `Action: ${data.id}\n` +
-        `Risk: ${risk}\n\n` +
-        `The action executed, the filesystem diff was inspected, ` +
-        `and human approval is required.`,
-        "warning"
-      );
-
-    } else if (
-      status === "COMPLETED"
-    ) {
-
-      demoSetStatus(
-        `🟢 COMPLETED\n\n` +
-        `Action: ${data.id}\n` +
-        `Risk: ${risk}`,
-        "success"
-      );
-
-    } else {
-
-      demoSetStatus(
-        `Action ${data.id} → ${status}\nRisk: ${risk}`
-      );
-
+        throw new Error(
+            "No paused action requires approval."
+        );
     }
 
-
-    await load();
-
-    return data;
-
-  } catch (error) {
-
-    if (
-      error.message !==
-      "Not authenticated"
-    ) {
-
-      demoSetStatus(
-        error.message ||
-        "Demo action failed.",
-        "danger"
-      );
-
-    }
-
-    return null;
-
-  }
-
+    return paused[
+        paused.length - 1
+    ].action;
 }
 
-
-/* ============================================================
-   INITIALIZE DEMO WORKSPACE
-============================================================ */
-
-async function initializeDemoWorkspace() {
-
-  /*
-   * We create the demo files inside the Solari sandbox.
-   *
-   * No destructive operation is performed here.
-   *
-   * This gives the later demo actions something real to
-   * protect and recover.
-   */
-
-  const command =
-    "mkdir -p reports bulk_data " +
-    "&& printf '%s\\n' 'DEMO_SECRET=do-not-expose' > secrets.env " +
-    "&& printf '%s\\n' 'Demo report' > reports/report.txt " +
-    "&& for i in $(seq -w 1 25); do " +
-    "printf 'bulk demo %s\\n' \"$i\" > \"bulk_data/file_$i.dat\"; " +
-    "done";
-
-  return submitDemoAction(
-    "shell.execute",
-    "Prepare the demo workspace for safe testing",
-    null,
-    {
-      command: command
-    }
-  );
-
-}
-
-
-/* ============================================================
-   SAFE ACTION
-============================================================ */
-
-async function demoSafeAction() {
-
-  return submitDemoAction(
-
-    "file.write",
-
-    "Create a harmless action summary",
-
-    "demo_summary.md",
-
-    {
-      content:
-        "# CHECKPOINT Demo\n\n" +
-        "This file was created by a safe agent action.\n"
-    }
-
-  );
-
-}
-
-
-/* ============================================================
-   SECRET DELETION
-============================================================ */
-
-async function demoSecretDelete() {
-
-  return submitDemoAction(
-
-    "file.delete",
-
-    "Remove a temporary project file",
-
-    "secrets.env",
-
-    {}
-
-  );
-
-}
-
-
-/* ============================================================
-   INTENT MISMATCH
-============================================================ */
-
-async function demoIntentMismatch() {
-
-  return submitDemoAction(
-
-    "shell.execute",
-
-    "Organize the reports folder",
-
-    null,
-
-    {
-      command:
-        "rm -rf reports"
-    }
-
-  );
-
-}
-
-
-/* ============================================================
-   BULK DELETE
-============================================================ */
-
-async function demoBulkDelete() {
-
-  const command =
-    `python -c "import os; ` +
-    `[os.remove(os.path.join('bulk_data',f)) ` +
-    `for f in os.listdir('bulk_data')]"`;
-
-
-  return submitDemoAction(
-
-    "shell.execute",
-
-    "Inspect and process the bulk data directory",
-
-    null,
-
-    {
-      command:
-        command
-    }
-
-  );
-
-}
-
-
-/* ============================================================
-   PAUSED ACTION LOOKUP
-============================================================ */
-
-async function getLatestPausedAction() {
-
-  const sessionId =
-    requireDemoSession();
-
-  if (!sessionId) {
-    throw new Error(
-      "No session selected."
-    );
-  }
-
-
-  const response =
-    await api(
-      `/sessions/${encodeURIComponent(sessionId)}/timeline`
-    );
-
-
-  const data =
-    await response.json();
-
-
-  if (!response.ok) {
-
-    throw new Error(
-      data.detail ||
-      "Unable to load timeline."
-    );
-
-  }
-
-
-  const paused =
-    (data.actions || [])
-      .filter(
-        entry =>
-          entry.action &&
-          entry.action.status ===
-            "paused"
-      );
-
-
-  if (!paused.length) {
-
-    throw new Error(
-      "No paused action is currently waiting for approval."
-    );
-
-  }
-
-
-  return paused[
-    paused.length - 1
-  ].action;
-
-}
-
-
-/* ============================================================
-   APPROVE PAUSED ACTION
-============================================================ */
 
 async function approveLatestPaused() {
 
-  try {
+    try {
 
-    const action =
-      await getLatestPausedAction();
+        const action =
+            await latestPausedAction();
 
+        await approveAction(
+            action.id
+        );
 
-    demoSetStatus(
-      `Approving ${action.id}…`,
-      "warning"
-    );
+    } catch(error) {
 
-
-    const response =
-      await api(
-        `/actions/${encodeURIComponent(action.id)}/approve`,
-        {
-          method: "POST"
-        }
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        data.detail ||
-        "Unable to approve action."
-      );
-
+        setDemoStatus(
+            error.message,
+            "danger"
+        );
     }
-
-
-    demoSetStatus(
-      `✓ Action approved\n\n` +
-      `Action: ${action.id}\n` +
-      `Status: ${data.status}`,
-      "success"
-    );
-
-
-    await load();
-
-  } catch (error) {
-
-    if (
-      error.message !==
-      "Not authenticated"
-    ) {
-
-      demoSetStatus(
-        error.message ||
-        "Approval failed.",
-        "danger"
-      );
-
-    }
-
-  }
-
 }
 
-
-/* ============================================================
-   REJECT + RECOVER
-============================================================ */
 
 async function rejectLatestPaused() {
 
-  try {
+    try {
 
-    const action =
-      await getLatestPausedAction();
+        const action =
+            await latestPausedAction();
 
-
-    demoSetStatus(
-      `Rejecting ${action.id} and restoring checkpoint…`,
-      "warning"
-    );
-
-
-    const response =
-      await api(
-        `/actions/${encodeURIComponent(action.id)}/reject?rollback=true`,
-        {
-          method: "POST"
-        }
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        data.detail ||
-        "Recovery failed."
-      );
-
-    }
-
-
-    demoSetStatus(
-      `↩ Action rejected\n\n` +
-      `Action: ${action.id}\n` +
-      `Status: ${data.status}\n\n` +
-      `Checkpoint recovery was requested.`,
-      "success"
-    );
-
-
-    await load();
-
-  } catch (error) {
-
-    if (
-      error.message !==
-      "Not authenticated"
-    ) {
-
-      demoSetStatus(
-        error.message ||
-        "Recovery failed.",
-        "danger"
-      );
-
-    }
-
-  }
-
-}
-
-
-/* ============================================================
-   DIRECT TIMELINE APPROVAL BUTTONS
-============================================================ */
-
-async function approveAction(
-  actionId
-) {
-
-  try {
-
-    const response =
-      await api(
-        `/actions/${encodeURIComponent(actionId)}/approve`,
-        {
-          method: "POST"
-        }
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        data.detail ||
-        "Unable to approve action."
-      );
-
-    }
-
-
-    demoSetStatus(
-      `✓ Action ${actionId} approved.`,
-      "success"
-    );
-
-
-    await load();
-
-  } catch (error) {
-
-    demoSetStatus(
-      error.message ||
-      "Approval failed.",
-      "danger"
-    );
-
-  }
-
-}
-
-
-async function rejectAction(
-  actionId
-) {
-
-  try {
-
-    const response =
-      await api(
-        `/actions/${encodeURIComponent(actionId)}/reject?rollback=true`,
-        {
-          method: "POST"
-        }
-      );
-
-
-    const data =
-      await response.json();
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        data.detail ||
-        "Unable to reject/recover action."
-      );
-
-    }
-
-
-    demoSetStatus(
-      `↩ Action ${actionId} rejected.\n` +
-      `Recovery requested.`,
-      "success"
-    );
-
-
-    await load();
-
-  } catch (error) {
-
-    demoSetStatus(
-      error.message ||
-      "Recovery failed.",
-      "danger"
-    );
-
-  }
-
-}
-
-
-/* ============================================================
-   DEMO REFRESH
-============================================================ */
-
-async function refreshDemoTimeline() {
-
-  await load();
-
-}
-
-
-/* ============================================================
-   INITIAL PAGE STATE
-============================================================ */
-
-window.addEventListener(
-  "DOMContentLoaded",
-  () => {
-
-    const token =
-      getToken();
-
-    if (token) {
-
-      showApp();
-
-      const storedSession =
-        sessionStorage.getItem(
-          "checkpoint_session_id"
+        await rejectAction(
+            action.id
         );
 
-      if (storedSession) {
+    } catch(error) {
 
-        document
-          .getElementById(
-            "sessionId"
-          )
-          .value =
-            storedSession;
+        setDemoStatus(
+            error.message,
+            "danger"
+        );
+    }
+}
 
-        load();
 
-      }
+async function approveAction(id) {
 
-    } else {
+    try {
 
-      showAuthGate("");
+        const response =
+            await api(
+                `/actions/${encodeURIComponent(id)}/approve`,
+                {
+                    method: "POST"
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.detail ||
+                "Approval failed."
+            );
+        }
+
+        setDemoStatus(
+            `✓ ACTION APPROVED
+
+${id}
+
+Execution approved by human review.`,
+            "success"
+        );
+
+        toast(
+            "Action approved."
+        );
+
+        animatePipeline(4);
+
+        await loadTimeline();
+
+    } catch(error) {
+
+        setDemoStatus(
+            error.message,
+            "danger"
+        );
+
+        toast(
+            error.message,
+            "error"
+        );
+    }
+}
+
+
+async function rejectAction(id) {
+
+    try {
+
+        const response =
+            await api(
+                `/actions/${encodeURIComponent(id)}/reject?rollback=true`,
+                {
+                    method: "POST"
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.detail ||
+                "Recovery failed."
+            );
+        }
+
+        setDemoStatus(
+            `↩ ACTION REJECTED
+
+${id}
+
+Checkpoint recovery requested.`,
+            "success"
+        );
+
+        toast(
+            "Action rejected and recovery requested."
+        );
+
+        animatePipeline(6);
+
+        await loadTimeline();
+
+    } catch(error) {
+
+        setDemoStatus(
+            error.message,
+            "danger"
+        );
+
+        toast(
+            error.message,
+            "error"
+        );
+    }
+}
+
+
+/* ---------------------------------------------------------
+   PIPELINE ANIMATION
+--------------------------------------------------------- */
+
+function animatePipeline(step) {
+
+    const steps =
+        document.querySelectorAll(
+            ".pipeline-step"
+        );
+
+    steps.forEach(
+        (element,index) => {
+
+            element.classList.toggle(
+                "active",
+                index === step - 1
+            );
+
+        }
+    );
+}
+
+
+function resetPipeline() {
+
+    document
+        .querySelectorAll(
+            ".pipeline-step"
+        )
+        .forEach(
+            element =>
+            element.classList.remove(
+                "active"
+            )
+        );
+}
+
+
+/* ---------------------------------------------------------
+   NAVIGATION
+--------------------------------------------------------- */
+
+function jumpTo(id) {
+
+    const element =
+        document.getElementById(id);
+
+    if (!element)
+        return;
+
+    element.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+
+    document
+        .querySelectorAll(
+            ".nav-item"
+        )
+        .forEach(
+            item =>
+            item.classList.remove(
+                "active"
+            )
+        );
+}
+
+
+function focusConnection() {
+
+    $("connection")
+        .scrollIntoView({
+            behavior: "smooth",
+            block: "center"
+        });
+}
+
+
+/* ---------------------------------------------------------
+   INITIALIZATION
+--------------------------------------------------------- */
+
+window.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        if (token()) {
+
+            showApp();
+
+            const saved =
+                sessionStorage.getItem(
+                    SESSION_KEY
+                );
+
+            if (saved) {
+
+                $("sessionId")
+                    .value = saved;
+
+                loadTimeline();
+
+            }
+
+        } else {
+
+            showAuth();
+
+        }
 
     }
-
-  }
 );
 
 
-/*
- * Keep the current session ID available across refreshes.
- */
+/* Save session ID */
 
-document
-  .getElementById(
-    "sessionId"
-  )
-  .addEventListener(
-    "input",
-    event => {
+$("sessionId")
+    .addEventListener(
+        "input",
+        event => {
 
-      const value =
-        event.target.value.trim();
+            const value =
+                event.target.value.trim();
 
-      if (value) {
+            if (value) {
 
-        sessionStorage.setItem(
-          "checkpoint_session_id",
-          value
-        );
+                sessionStorage.setItem(
+                    SESSION_KEY,
+                    value
+                );
 
-      } else {
+            } else {
 
-        sessionStorage.removeItem(
-          "checkpoint_session_id"
-        );
+                sessionStorage.removeItem(
+                    SESSION_KEY
+                );
 
-      }
+            }
 
-    }
-  );
+        }
+    );
+
+
+/* Enter key */
+
+$("authPassword")
+    .addEventListener(
+        "keydown",
+        event => {
+
+            if (
+                event.key === "Enter"
+            ) {
+
+                login();
+
+            }
+
+        }
+    );
 
 </script>
 
