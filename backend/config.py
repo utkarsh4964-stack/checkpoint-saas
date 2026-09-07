@@ -48,6 +48,17 @@ class Settings:
     GLOBAL_RATE_LIMIT_MAX: int = _int("CHECKPOINT_GLOBAL_RATE_MAX", 120)
     GLOBAL_RATE_LIMIT_WINDOW_SEC: int = _int("CHECKPOINT_GLOBAL_RATE_WINDOW_SEC", 60)
 
+    # --- Billing (Stripe) ---------------------------------------------
+    # Public site the browser is served from; Stripe redirects back here
+    # after Checkout / the Billing Portal.
+    FRONTEND_BASE_URL: str = os.getenv("CHECKPOINT_FRONTEND_URL", "http://localhost:8000").rstrip("/")
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "").strip()
+    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "").strip()
+    # Price IDs from the Stripe Dashboard (Product > Pricing), one per paid tier.
+    STRIPE_PRICE_PRO: str = os.getenv("STRIPE_PRICE_PRO", "").strip()
+    STRIPE_PRICE_TEAM: str = os.getenv("STRIPE_PRICE_TEAM", "").strip()
+    BILLING_ENABLED: bool = bool(os.getenv("STRIPE_SECRET_KEY", "").strip())
+
 
 settings = Settings()
 
@@ -62,3 +73,7 @@ if settings.ENVIRONMENT == "production":
         raise RuntimeError("CHECKPOINT_JWT_SECRET must be set in production.")
     if len(settings.JWT_SECRET_KEY.encode("utf-8")) < 32:
         raise RuntimeError("CHECKPOINT_JWT_SECRET must be at least 32 bytes in production.")
+    if settings.BILLING_ENABLED and not settings.STRIPE_WEBHOOK_SECRET:
+        raise RuntimeError(
+            "STRIPE_WEBHOOK_SECRET must be set in production when STRIPE_SECRET_KEY is configured."
+        )
