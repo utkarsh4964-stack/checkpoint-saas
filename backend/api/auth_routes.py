@@ -101,4 +101,10 @@ def login(req: LoginRequest, request: Request) -> TokenResponse:
 
 @router.get("/me")
 def me(user: User = Depends(get_current_user)):
-    return {"id": user.id, "email": user.email, "created_at": user.created_at}
+    return {
+        "id": user.id,
+        "email": user.email,
+        "created_at": user.created_at,
+        "plan": user.plan.value,
+        "plan_status": user.plan_status.value,
+    }
