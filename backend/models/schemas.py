@@ -73,6 +73,18 @@ class RollbackTrigger(str, Enum):
     MANUAL = "manual"
 
 
+class Plan(str, Enum):
+    FREE = "free"
+    PRO = "pro"
+    TEAM = "team"
+
+
+class PlanStatus(str, Enum):
+    ACTIVE = "active"          # free tier, or a paid tier in good standing
+    PAST_DUE = "past_due"      # Stripe invoice failed, grace period
+    CANCELED = "canceled"      # subscription ended; treated as FREE limits
+
+
 # --------------------------------------------------------------------------
 # Risk
 # --------------------------------------------------------------------------
@@ -132,6 +144,18 @@ class User(BaseModel):
     password_hash: str
     created_at: datetime = Field(default_factory=_now)
     is_active: bool = True
+    plan: Plan = Plan.FREE
+    plan_status: PlanStatus = PlanStatus.ACTIVE
+    stripe_customer_id: Optional[str] = None
+    stripe_subscription_id: Optional[str] = None
+
+    @property
+    def effective_plan(self) -> Plan:
+        """Billing safety net: a lapsed/canceled subscription falls back
+        to FREE limits even if the `plan` column hasn't been reset yet."""
+        if self.plan != Plan.FREE and self.plan_status == PlanStatus.CANCELED:
+            return Plan.FREE
+        return self.plan
 
 
 class Session(BaseModel):
