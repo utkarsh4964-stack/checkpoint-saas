@@ -45,3 +45,18 @@ services:
 
       - key: CHECKPOINT_GLOBAL_RATE_MAX
         value: "120"
+
+      - key: CHECKPOINT_FRONTEND_URL
+        value: "https://checkpoint-api.onrender.com"
+
+      - key: STRIPE_SECRET_KEY
+        sync: false
+
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+      - key: STRIPE_PRICE_PRO
+        sync: false
+
+      - key: STRIPE_PRICE_TEAM
+        sync: false
