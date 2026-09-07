@@ -489,31 +489,33 @@ class SolariSandboxRuntime(SandboxRuntime):
         # IMPORTANT FIX
         # --------------------------------------------------------------
         #
-        # CHECKPOINT uses /project as the cwd for:
+        # The Solari sandbox may not have /project yet.
         #
-        #   - root_path()
-        #   - filesystem synchronization
-        #   - shell actions
+        # We CANNOT use self.run_command() here because run_command()
+        # always uses /project as its cwd. If /project doesn't exist,
+        # the command itself fails before "mkdir" can create it.
         #
-        # The base Solari template does not necessarily create this
-        # directory for us. Therefore create it immediately after
-        # sandbox creation.
-        #
-        # This prevents the first action from failing before the actual
-        # user command even executes.
+        # Therefore the bootstrap command must run from the sandbox
+        # root filesystem (cwd="/").
         # --------------------------------------------------------------
 
-        result = self.run_command(
-            "mkdir",
-            [
-                "-p",
-                self.PROJECT_ROOT,
-            ],
+        result = self._run_async(
+            self._sandbox.commands.run(
+                "mkdir",
+                args=[
+                    "-p",
+                    self.PROJECT_ROOT,
+                ],
+                cwd="/",
+            )
         )
 
-        if result.get("exit_code") not in (0, None):
+        if getattr(result, "exit_code", None) not in (
+            0,
+            None,
+        ):
             stderr = (
-                result.get("stderr")
+                getattr(result, "stderr", None)
                 or "command failed"
             )
 
