@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.auth import get_current_user
+from backend.billing.plans import limits_for
 from backend.config import settings
 from backend.core import registry
 from backend.db import repositories as repo
@@ -48,12 +49,14 @@ def submit_action(session_id: str, req: SubmitActionRequest, user: User = Depend
     if not manager:
         raise HTTPException(404, "No active session/manager")
 
+    plan_limits = limits_for(user.effective_plan)
     used = repo.count_actions(session_id)
-    if used >= settings.MAX_ACTIONS_PER_SESSION:
+    if used >= plan_limits.max_actions_per_session:
         raise HTTPException(
             429,
-            f"This session has reached its limit of {settings.MAX_ACTIONS_PER_SESSION} actions. "
-            "Start a new session to continue.",
+            f"This session has reached its {plan_limits.label} plan limit of "
+            f"{plan_limits.max_actions_per_session} actions. Start a new session, "
+            "or upgrade your plan, to continue.",
         )
 
     try:
