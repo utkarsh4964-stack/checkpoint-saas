@@ -16,6 +16,8 @@ from backend.models.schemas import (
     ActionType,
     Checkpoint,
     DiffResult,
+    Plan,
+    PlanStatus,
     RiskFinding,
     RollbackEvent,
     RollbackTrigger,
@@ -33,9 +35,17 @@ from backend.models.schemas import (
 def create_user(user: User) -> User:
     with transaction() as conn:
         conn.execute(
-            """INSERT INTO users (id, email, password_hash, created_at, is_active)
-               VALUES (?, ?, ?, ?, ?)""",
-            (user.id, user.email, user.password_hash, user.created_at.isoformat(), int(user.is_active)),
+            """INSERT INTO users (id, email, password_hash, created_at, is_active, plan, plan_status)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                user.id,
+                user.email,
+                user.password_hash,
+                user.created_at.isoformat(),
+                int(user.is_active),
+                user.plan.value,
+                user.plan_status.value,
+            ),
         )
     return user
 
@@ -47,6 +57,10 @@ def _row_to_user(row) -> User:
         password_hash=row["password_hash"],
         created_at=datetime.fromisoformat(row["created_at"]),
         is_active=bool(row["is_active"]),
+        plan=Plan(row["plan"]) if row["plan"] else Plan.FREE,
+        plan_status=PlanStatus(row["plan_status"]) if row["plan_status"] else PlanStatus.ACTIVE,
+        stripe_customer_id=row["stripe_customer_id"],
+        stripe_subscription_id=row["stripe_subscription_id"],
     )
 
 
@@ -60,6 +74,38 @@ def get_user_by_email(email: str) -> Optional[User]:
     with transaction() as conn:
         row = conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
     return _row_to_user(row) if row else None
+
+
+def get_user_by_stripe_customer_id(customer_id: str) -> Optional[User]:
+    with transaction() as conn:
+        row = conn.execute(
+            "SELECT * FROM users WHERE stripe_customer_id=?", (customer_id,)
+        ).fetchone()
+    return _row_to_user(row) if row else None
+
+
+def set_stripe_customer_id(user_id: str, customer_id: str) -> None:
+    with transaction() as conn:
+        conn.execute(
+            "UPDATE users SET stripe_customer_id=? WHERE id=?",
+            (customer_id, user_id),
+        )
+
+
+def update_user_billing(
+    user_id: str,
+    *,
+    plan: Plan,
+    plan_status: PlanStatus,
+    stripe_subscription_id: Optional[str],
+) -> None:
+    """Applied from the Stripe webhook handler — the single source of
+    truth for what a user is actually paying for."""
+    with transaction() as conn:
+        conn.execute(
+            "UPDATE users SET plan=?, plan_status=?, stripe_subscription_id=? WHERE id=?",
+            (plan.value, plan_status.value, stripe_subscription_id, user_id),
+        )
 
 
 # --------------------------------------------------------------------------
