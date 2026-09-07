@@ -5,6 +5,7 @@ import threading
 from pydantic import BaseModel, Field, SecretStr, field_validator
 
 from backend.auth import get_current_user
+from backend.billing.plans import limits_for
 from backend.config import settings
 from backend.core import registry
 from backend.core.checkpoint_manager import CheckpointManager
@@ -56,16 +57,17 @@ def start_session(req: StartSessionRequest, user: User = Depends(get_current_use
     # Serialize the quota check + runtime creation so concurrent requests
     # cannot both observe an available slot and exceed the per-user limit.
     with _session_start_lock:
+        plan_limits = limits_for(user.effective_plan)
         active = repo.count_active_sessions(
             user.id,
             idle_timeout_minutes=settings.SESSION_IDLE_TIMEOUT_MINUTES,
             max_lifetime_minutes=settings.SESSION_MAX_LIFETIME_MINUTES,
         )
-        if active >= settings.MAX_ACTIVE_SESSIONS_PER_USER:
+        if active >= plan_limits.max_active_sessions:
             raise HTTPException(
                 429,
-                f"You already have {active} active session(s) — the limit is "
-                f"{settings.MAX_ACTIVE_SESSIONS_PER_USER}. End one before starting another.",
+                f"You already have {active} active session(s) — the {plan_limits.label} plan "
+                f"limit is {plan_limits.max_active_sessions}. End one, or upgrade your plan.",
             )
 
         solari_key = req.solari_api_key.get_secret_value() if req.solari_api_key else None
@@ -128,7 +130,7 @@ def get_timeline(session_id: str, user: User = Depends(get_current_user)):
             "rollbacks": len(rollbacks),
         },
         "limits": {
-            "max_actions_per_session": settings.MAX_ACTIONS_PER_SESSION,
+            "max_actions_per_session": limits_for(user.effective_plan).max_actions_per_session,
             "actions_used": len(actions),
         },
     }
