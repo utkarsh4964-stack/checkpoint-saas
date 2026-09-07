@@ -1809,7 +1809,93 @@ button {
     .auth-card {
         padding: 25px;
     }
+}/* =========================================================
+   BILLING
+========================================================= */
+
+.plan-pill {
+    color: var(--text-2);
+
+    border: 1px solid var(--border);
+
+    background: rgba(255,255,255,.025);
+
+    padding: 7px 10px;
+
+    border-radius: 999px;
+
+    font-size: 10px;
+
+    cursor: pointer;
 }
+
+.plan-pill:hover {
+    border-color: var(--border-hover);
+}
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+
+    background: rgba(0,0,0,.6);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    z-index: 50;
+}
+
+.modal-card {
+    background: var(--panel);
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius);
+
+    padding: 22px;
+
+    width: min(560px, 92vw);
+
+    max-height: 84vh;
+    overflow-y: auto;
+}
+
+.plan-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+
+    margin: 16px 0;
+}
+
+.plan-option {
+    border: 1px solid var(--border);
+
+    border-radius: 10px;
+
+    padding: 14px;
+
+    text-align: left;
+    background: rgba(255,255,255,.02);
+}
+
+.plan-option h4 {
+    margin: 0 0 6px;
+    color: var(--text);
+    font-size: 13px;
+}
+
+.plan-option p {
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.plan-option.current {
+    border-color: var(--green);
+}
+
 </style>
 </head>
 
@@ -2026,6 +2112,14 @@ button {
                         No active session
                     </span>
 
+                </div>
+
+                <div
+                    id="planPill"
+                    class="plan-pill"
+                    onclick="openBillingModal()"
+                >
+                    Free plan
                 </div>
 
                 <div
@@ -2683,6 +2777,22 @@ inside this workspace.
 ></div>
 
 
+<div id="billingModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+        <h3 style="margin-top:0;">Choose a plan</h3>
+        <p style="color:var(--muted); font-size:12px;">
+            Upgrading raises your active-session and per-session
+            action limits. Manage or cancel anytime.
+        </p>
+        <div id="planGrid" class="plan-grid"></div>
+        <div style="display:flex; justify-content:space-between; margin-top:8px;">
+            <button class="btn" onclick="openPortal()">Manage billing</button>
+            <button class="btn" onclick="closeBillingModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+
 <script>
 
 const API =
@@ -2833,6 +2943,132 @@ function showApp() {
         <button onclick="logout()">
             Log out
         </button>`;
+
+    loadBilling();
+}
+
+
+/* =========================================================
+   BILLING
+========================================================= */
+
+let _plansCache = null;
+
+async function loadBilling() {
+    try {
+        const response = await api("/billing/me");
+        if (!response.ok) return;
+        const data = await response.json();
+
+        const label =
+            data.effective_plan.charAt(0).toUpperCase() +
+            data.effective_plan.slice(1);
+
+        $("planPill").textContent =
+            data.plan_status === "past_due"
+                ? `${label} plan (payment issue)`
+                : `${label} plan`;
+
+    } catch (error) {
+        // Non-fatal — the pill just keeps its default label.
+    }
+}
+
+async function openBillingModal() {
+    $("billingModal").classList.remove("hidden");
+
+    try {
+        if (!_plansCache) {
+            const response = await api("/billing/plans");
+            _plansCache = await response.json();
+        }
+
+        const meResponse = await api("/billing/me");
+        const me = await meResponse.json();
+
+        const grid = $("planGrid");
+        grid.innerHTML = "";
+
+        if (!_plansCache.billing_enabled) {
+            grid.innerHTML =
+                `<p style="color:var(--muted); font-size:12px;">
+                    Billing isn't configured on this deployment yet.
+                </p>`;
+            return;
+        }
+
+        for (const plan of _plansCache.plans) {
+            const isCurrent = plan.id === me.effective_plan;
+
+            const el = document.createElement("div");
+            el.className = `plan-option${isCurrent ? " current" : ""}`;
+
+            el.innerHTML = `
+                <h4>${escapeHtml(plan.label)}</h4>
+                <p>
+                    ${plan.max_active_sessions} active session(s)<br>
+                    ${plan.max_actions_per_session} actions/session
+                </p>
+                ${
+                    isCurrent
+                        ? `<span style="font-size:11px; color:var(--green);">Current plan</span>`
+                        : plan.id === "free"
+                        ? ""
+                        : `<button class="btn primary" onclick="checkout('${plan.id}')">
+                               Upgrade
+                           </button>`
+                }
+            `;
+
+            grid.appendChild(el);
+        }
+
+    } catch (error) {
+        toast("Could not load plans.", "error");
+    }
+}
+
+function closeBillingModal() {
+    $("billingModal").classList.add("hidden");
+}
+
+async function checkout(planId) {
+    try {
+        const response = await api(
+            "/billing/checkout",
+            {
+                method: "POST",
+                body: JSON.stringify({ plan: planId }),
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || "Could not start checkout.");
+        }
+
+        window.location.href = data.checkout_url;
+
+    } catch (error) {
+        toast(error.message, "error");
+    }
+}
+
+async function openPortal() {
+    try {
+        const response = await api("/billing/portal", { method: "POST" });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || "Could not open billing portal.");
+        }
+
+        window.location.href = data.portal_url;
+
+    } catch (error) {
+        toast(error.message, "error");
+    }
 }
 
 
