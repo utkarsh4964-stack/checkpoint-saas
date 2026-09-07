@@ -44,7 +44,11 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    is_active INTEGER NOT NULL DEFAULT 1
+    is_active INTEGER NOT NULL DEFAULT 1,
+    plan TEXT NOT NULL DEFAULT 'free',
+    plan_status TEXT NOT NULL DEFAULT 'active',
+    stripe_customer_id TEXT,
+    stripe_subscription_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -170,10 +174,35 @@ def get_connection():
     return conn
 
 
+# Columns added after the initial release. `CREATE TABLE IF NOT EXISTS`
+# only helps brand-new databases — existing deployments need an
+# explicit ALTER TABLE. Each entry is (column, DDL type + default).
+_USER_MIGRATIONS: list[tuple[str, str]] = [
+    ("plan", "TEXT NOT NULL DEFAULT 'free'"),
+    ("plan_status", "TEXT NOT NULL DEFAULT 'active'"),
+    ("stripe_customer_id", "TEXT"),
+    ("stripe_subscription_id", "TEXT"),
+]
+
+
+def _run_user_migrations(conn) -> None:
+    if IS_POSTGRES:
+        for column, ddl in _USER_MIGRATIONS:
+            conn.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {column} {ddl}")
+        return
+
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+    for column, ddl in _USER_MIGRATIONS:
+        if column not in existing:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {column} {ddl}")
+
+
 def init_db() -> None:
     conn = get_connection()
     try:
         conn.executescript(SCHEMA_COMMON)
+        _run_user_migrations(conn)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_users_stripe_customer ON users(stripe_customer_id)")
         conn.commit()
     finally:
         conn.close()
